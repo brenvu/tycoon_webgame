@@ -114,10 +114,9 @@ function dealCards(deck, numPlayers) {
 
 // Returns numeric strength of a card (higher = stronger)
 // revolutionActive flips the normal order (Joker stays highest)
-// NOTE: 3♠ is treated as a NORMAL card for strength purposes.
-// Its special ability (beating a single Joker) is handled only in validatePlay.
 function cardStrength(card, revolutionActive = false) {
   if (card.joker) return 1000; // Always highest
+  if (card.suit === 'spades' && card.rank === '3') return 999; // Special: only beats single joker
 
   const idx = RANK_ORDER_NORMAL.indexOf(card.rank);
   if (idx === -1) return 0;
@@ -194,17 +193,13 @@ function validatePlay(selectedCards, currentPlay, revolutionActive) {
     return { valid: false, reason: 'Cards must be the same rank (Joker counts as any rank).' };
   }
 
-  // 3 of Spades special: only allowed as a SINGLE card against a single Joker play.
-  // In all other contexts it is treated as a normal 3 (weakest card).
+  // 3 of Spades special: only allowed if current play is a single Joker
   const has3Spades = selectedCards.some(c => !c.joker && c.suit === 'spades' && c.rank === '3');
   if (has3Spades) {
-    // 3♠ is only valid when played alone against a single Joker
-    if (count === 1 && currentPlay && currentPlay.count === 1 && currentPlay.topStrength === 1000) {
+    if (count === 1 && currentPlay.count === 1 && currentPlay.topStrength === 1000) {
       return { valid: true, is3Spades: true };
     }
-    // In a pair or any other scenario, 3♠ is treated as a normal 3 (value 0),
-    // so it will fail the strength check below — do NOT give it special treatment.
-    // Fall through to normal strength validation.
+    return { valid: false, reason: '3♠ can only be played against a single Joker.' };
   }
 
   // Get play strength
@@ -262,14 +257,13 @@ function getPlayableCards(hand, currentPlay, revolutionActive) {
     if (is8Stop(c)) playable.add(c.id);
   });
 
-  // Check if 3♠ can be played (ONLY against a single Joker)
+  // Check if 3♠ can be played
   if (requiredCount === 1 && required === 1000) {
     const threeSpades = hand.find(c => !c.joker && c.suit === 'spades' && c.rank === '3');
     if (threeSpades) playable.add(threeSpades.id);
   }
 
   // Group cards by rank (jokers group with any rank)
-  // NOTE: 3♠ is treated as a normal 3 here — its strength is 0 (weakest)
   const byRank = {};
   hand.forEach(c => {
     if (c.joker) return; // handle separately
