@@ -610,19 +610,12 @@ class TycoonApp {
 }
 
 // ---- Boot ----
-window.addEventListener('DOMContentLoaded', () => {
-  // Load PeerJS from CDN (needed for WebRTC)
-  const script = document.createElement('script');
-  script.src = 'https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js';
-  script.onload = () => {
+window.addEventListener('load', () => {
+  // Directly initialize because PeerJS is already loaded in index.html
+  if (typeof Peer !== 'undefined') {
     window.app = new TycoonApp();
-  };
-  script.onerror = () => {
-    // Fallback CDN
-    const s2 = document.createElement('script');
-    s2.src = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js';
-    s2.onload = () => { window.app = new TycoonApp(); };
-    document.head.appendChild(s2);
-  };
-  document.head.appendChild(script);
+  } else {
+    console.error("PeerJS failed to load. Check your internet connection or script tags.");
+    UI.showToast("Network Error: Could not load PeerJS", 5000);
+  }
 });

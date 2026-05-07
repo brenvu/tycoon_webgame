@@ -7,11 +7,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;600;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- LOBBY SCREEN -->
 <div id="screen-lobby" class="screen active">
   <div class="lobby-bg"></div>
   <div class="lobby-content">
@@ -21,7 +21,6 @@
     </div>
 
     <div class="lobby-panel">
-      <!-- Profile Setup -->
       <div class="profile-setup">
         <h2 class="panel-title">YOUR PROFILE</h2>
         <div class="input-group">
@@ -44,7 +43,6 @@
 
       <div class="lobby-divider"></div>
 
-      <!-- Host or Join -->
       <div class="lobby-actions">
         <div class="action-col">
           <h3>HOST A GAME</h3>
@@ -59,7 +57,6 @@
       </div>
     </div>
 
-    <!-- Waiting Room -->
     <div id="waiting-room" class="waiting-room hidden">
       <div class="room-code-display">
         <span class="rc-label">ROOM CODE</span>
@@ -75,7 +72,6 @@
   </div>
 </div>
 
-<!-- CARD EXCHANGE SCREEN (between rounds) -->
 <div id="screen-exchange" class="screen hidden">
   <div class="exchange-overlay">
     <div class="exchange-panel">
@@ -88,11 +84,8 @@
   </div>
 </div>
 
-<!-- GAME SCREEN -->
 <div id="screen-game" class="screen hidden">
   <div class="game-layout">
-
-    <!-- Top bar -->
     <div class="game-topbar">
       <div class="topbar-left">
         <span class="round-label">ROUND</span>
@@ -107,10 +100,8 @@
       </div>
     </div>
 
-    <!-- Opponents area (top 3 players) -->
     <div class="opponents-area" id="opponents-area"></div>
 
-    <!-- Center play area -->
     <div class="play-area">
       <div class="card-pile" id="card-pile">
         <div class="pile-empty-msg" id="pile-empty">Play starts here</div>
@@ -118,16 +109,13 @@
       <div class="pile-info" id="pile-info"></div>
     </div>
 
-    <!-- Turn timer -->
     <div class="timer-bar-wrap">
       <div class="timer-bar" id="timer-bar"></div>
       <div class="timer-text" id="timer-text">90</div>
     </div>
 
-    <!-- Action log -->
     <div class="action-log" id="action-log"></div>
 
-    <!-- Local player area -->
     <div class="local-player-area">
       <div class="local-player-info">
         <div class="local-avatar-wrap">
@@ -140,22 +128,18 @@
           <div class="local-cards-left">Cards: <span id="local-cards-count">0</span></div>
         </div>
       </div>
-
       <div class="hand-area">
         <div class="hand-cards" id="hand-cards"></div>
       </div>
-
       <div class="action-buttons">
         <button class="btn-action btn-play" id="btn-play" disabled>PLAY CARDS</button>
         <button class="btn-action btn-pass" id="btn-pass" disabled>PASS</button>
         <div class="selected-info" id="selected-info">Select cards to play</div>
       </div>
     </div>
-
   </div>
 </div>
 
-<!-- ROUND END SCREEN -->
 <div id="screen-round-end" class="screen hidden">
   <div class="round-end-overlay">
     <div class="round-end-panel">
@@ -166,7 +150,6 @@
   </div>
 </div>
 
-<!-- GAME OVER SCREEN -->
 <div id="screen-gameover" class="screen hidden">
   <div class="gameover-overlay">
     <div class="gameover-panel">
@@ -177,10 +160,8 @@
   </div>
 </div>
 
-<!-- Notification toast -->
 <div id="toast" class="toast hidden"></div>
 
-<script src="https://unpkg.com/netplayjs@0.4.2/dist/netplay.js"></script>
 <script src="cards.js"></script>
 <script src="netplay-bridge.js"></script>
 <script src="game.js"></script>
