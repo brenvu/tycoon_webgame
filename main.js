@@ -395,10 +395,19 @@ class TycoonApp {
     if (this.isHost) this._broadcastFullState();
     
     const phase = state.phase;
-    if (phase === 'exchange') UI.showScreen('exchange');
+    if (phase === 'exchange') {
+      UI.showScreen('exchange');
+      this.renderExchangeScreen();
+    }
     else if (phase === 'playing') UI.showScreen('game');
-    else if (phase === 'round_end') UI.showScreen('round-end');
-    else if (phase === 'game_over') UI.showScreen('gameover');
+    else if (phase === 'round_end') {
+      UI.showScreen('round-end');
+      UI.renderRoundEnd(this.game.players, this.game.round, this.game.finishOrder);
+    }
+    else if (phase === 'game_over') {
+      UI.showScreen('gameover');
+      UI.renderGameOver(this.game.players);
+    }
   }
 
   renderGameState() {
@@ -466,7 +475,18 @@ class TycoonApp {
   renderExchangeScreen() {
     const g = this.game;
     const exchangeInfo = g.getExchangeInfo();
-    if (!exchangeInfo) return;
+    if (!exchangeInfo) {
+      // This player has no exchange to do (or already submitted) — show waiting UI
+      const title = document.getElementById('exchange-title');
+      const desc = document.getElementById('exchange-desc');
+      const handEl = document.getElementById('exchange-hand');
+      const confirmBtn = document.getElementById('btn-confirm-exchange');
+      if (title) title.textContent = 'CARD EXCHANGE';
+      if (desc) desc.textContent = 'Waiting for other players to complete their exchange...';
+      if (handEl) handEl.innerHTML = '';
+      if (confirmBtn) confirmBtn.disabled = true;
+      return;
+    }
     UI.renderExchange(exchangeInfo, g.getLocalHand() || [], this.exchangeSelected, (card) => this.toggleExchangeCard(card), (cards) => this.submitExchange(cards), g.revolutionActive);
   }
 
