@@ -162,15 +162,6 @@ const UI = {
       info.appendChild(rankEl);
       info.appendChild(cardsEl);
 
-      // Mini face-down cards display
-      const miniCards = document.createElement('div');
-      miniCards.className = 'opponent-mini-cards';
-      const count = Math.min(player.handCount || 0, 10);
-      for (let i = 0; i < count; i++) {
-        const c = this.createCardEl(null, { faceDown: true, small: true });
-        c.style.marginLeft = i > 0 ? '-18px' : '0';
-        miniCards.appendChild(c);
-      }
 
       if (player.finished) {
         el.classList.add('player-finished');

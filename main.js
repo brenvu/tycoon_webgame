@@ -472,23 +472,39 @@ class TycoonApp {
     this.net.sendToHost({ type: 'next_round' });
   }
 
-  renderExchangeScreen() {
+// main.js
+
+renderExchangeScreen() {
     const g = this.game;
     const exchangeInfo = g.getExchangeInfo();
+    
+    const title = document.getElementById('exchange-title');
+    const desc = document.getElementById('exchange-desc');
+    const handEl = document.getElementById('exchange-hand');
+    const selInfo = document.getElementById('exchange-selected-info');
+    const confirmBtn = document.getElementById('btn-confirm-exchange');
+
+    // If no exchange is pending for THIS specific player
     if (!exchangeInfo) {
-      // This player has no exchange to do (or already submitted) — show waiting UI
-      const title = document.getElementById('exchange-title');
-      const desc = document.getElementById('exchange-desc');
-      const handEl = document.getElementById('exchange-hand');
-      const confirmBtn = document.getElementById('btn-confirm-exchange');
       if (title) title.textContent = 'CARD EXCHANGE';
-      if (desc) desc.textContent = 'Waiting for other players to complete their exchange...';
-      if (handEl) handEl.innerHTML = '';
-      if (confirmBtn) confirmBtn.disabled = true;
+      if (desc) desc.textContent = 'Waiting for other players to choose cards...';
+      if (handEl) handEl.innerHTML = '<div class="waiting-spinner"></div>';
+      if (selInfo) selInfo.textContent = '';
+      if (confirmBtn) confirmBtn.style.display = 'none';
       return;
     }
-    UI.renderExchange(exchangeInfo, g.getLocalHand() || [], this.exchangeSelected, (card) => this.toggleExchangeCard(card), (cards) => this.submitExchange(cards), g.revolutionActive);
-  }
+
+    // If exchange exists, show the UI
+    if (confirmBtn) confirmBtn.style.display = 'block';
+    UI.renderExchange(
+      exchangeInfo, 
+      g.getLocalHand() || [], 
+      this.exchangeSelected, 
+      (card) => this.toggleExchangeCard(card), 
+      (cards) => this.submitExchange(cards), 
+      g.revolutionActive
+    );
+}
 
   toggleExchangeCard(card) {
     if (this.exchangeSelected.has(card.id)) this.exchangeSelected.delete(card.id);
