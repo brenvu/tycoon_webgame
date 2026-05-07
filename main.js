@@ -15,8 +15,6 @@ class TycoonApp {
     this.isHost = false;
     this.playerInfo = { nickname: 'Phantom', avatar: '' };
     this.pendingExchange = null;
-
-    // Client-side timer tick (guests don't have game.timerInterval)
     this._timerTick = null;
     this._lastKnownTimer = 90;
 
@@ -64,16 +62,12 @@ class TycoonApp {
       .catch(() => UI.populateAvatarSelect(KNOWN_AVATARS));
   }
 
-  // ---- Client-side timer (for guests) ----
-  // The host runs the authoritative timer inside game.js.
-  // Guests get a timer value via state_sync, then count down
-  // locally so the bar moves smoothly between syncs.
+  // ---- Client-side timer tick (guests only) ----
 
   _startClientTimer(seconds) {
     this._stopClientTimer();
     this._lastKnownTimer = seconds;
-    // Guests run a local countdown; host timer already ticks via game._notify()
-    if (this.isHost) return;
+    if (this.isHost) return; // host uses game.timerInterval directly
     this._timerTick = setInterval(() => {
       this._lastKnownTimer = Math.max(0, this._lastKnownTimer - 1);
       UI.renderTimer(this._lastKnownTimer);
@@ -144,10 +138,14 @@ class TycoonApp {
     this._wireNet();
 
     this.net.onRoomReady = (code) => {
+      // localId is now guaranteed set before onRoomReady fires (see netplay-bridge.js)
+      this.localId = this.net.getLocalId();
+      console.log('[App] Host localId set:', this.localId);
       document.getElementById('display-room-code').textContent = code;
       document.getElementById('waiting-room').classList.remove('hidden');
       hostBtn.textContent = 'CREATE ROOM';
       hostBtn.disabled = false;
+      this.renderWaiting();
     };
     this.net.onError = (msg) => {
       this.showError(msg);
@@ -157,8 +155,8 @@ class TycoonApp {
 
     try {
       await this.net.host(this.playerInfo);
-      this.localId = this.net.getLocalId();
-      this.renderWaiting();
+      // localId already set inside onRoomReady callback above; this is a safety fallback
+      if (!this.localId) this.localId = this.net.getLocalId();
     } catch(e) {
       hostBtn.textContent = 'CREATE ROOM';
       hostBtn.disabled = false;
@@ -183,6 +181,8 @@ class TycoonApp {
     this._wireNet();
 
     this.net.onJoinSuccess = () => {
+      this.localId = this.net.getLocalId();
+      console.log('[App] Guest localId set:', this.localId);
       document.getElementById('display-room-code').textContent = raw;
       document.getElementById('waiting-room').classList.remove('hidden');
       joinBtn.textContent = 'JOIN ROOM';
@@ -197,7 +197,7 @@ class TycoonApp {
 
     try {
       await this.net.join(raw, this.playerInfo);
-      this.localId = this.net.getLocalId();
+      if (!this.localId) this.localId = this.net.getLocalId();
     } catch(e) {
       joinBtn.textContent = 'JOIN ROOM';
       joinBtn.disabled = false;
@@ -224,6 +224,9 @@ class TycoonApp {
     if (!this.isHost) return;
     const players = this.net.getPlayers();
     if (players.length < 2) { this.showError('Need at least 2 players to start.'); return; }
+
+    console.log('[App] startGame — localId:', this.localId, '| players:', players.map(p => p.id));
+
     this.net.broadcastGameMessage({ type: 'game_start', players });
     this._initGameLocally(players);
   }
@@ -231,12 +234,24 @@ class TycoonApp {
   _initGameLocally(netPlayers) {
     this._stopClientTimer();
     this.game.reset();
+    // reset() nulls out all callbacks — re-wire them immediately
+    this.game.onStateChange = (state) => this.onGameStateChange(state);
+    this.game.onActionLog   = (msg)   => UI.addLogEntry(msg);
+
     netPlayers.forEach(p => this.game.addPlayer(p.id, p.nickname, p.avatar));
 
-    // localPlayerIndex must be set BEFORE startRound() fires _notify()
-    this.localPlayerIndex = this.game.players.findIndex(p => p.id === this.localId);
-    this.game.localPlayerIndex = this.localPlayerIndex;
-    this.game.hostIndex = 0;
+    const idx = this.game.players.findIndex(p => p.id === this.localId);
+    console.log('[App] _initGameLocally — localId:', this.localId,
+                '| player ids:', this.game.players.map(p => p.id),
+                '| found index:', idx);
+
+    this.localPlayerIndex      = idx;
+    this.game.localPlayerIndex = idx;
+    this.game.hostIndex        = 0;
+
+    if (idx === -1) {
+      console.error('[App] FATAL: localId not found in player list! localId =', this.localId);
+    }
 
     UI.showScreen('game');
     this.game.startRound(); // fires _notify() → onGameStateChange()
@@ -336,8 +351,8 @@ class TycoonApp {
     if (!state) return;
     const g = this.game;
 
-    const prevTurn   = g.currentTurn;
-    const prevTimer  = g.turnTimer;
+    const prevTurn  = g.currentTurn;
+    const prevTimer = g.turnTimer;
 
     g.round            = state.round;
     g.currentTurn      = state.currentTurn;
@@ -351,8 +366,8 @@ class TycoonApp {
     g.exchangesDone    = new Set(state.exchangesDone || []);
 
     if (state.localPlayerIndex !== undefined) {
-      this.localPlayerIndex = state.localPlayerIndex;
-      g.localPlayerIndex    = state.localPlayerIndex;
+      this.localPlayerIndex      = state.localPlayerIndex;
+      g.localPlayerIndex         = state.localPlayerIndex;
     }
 
     if (state.players) {
@@ -366,7 +381,8 @@ class TycoonApp {
         lp.score          = sp.score;
         lp.finished       = sp.finished;
         lp.finishPosition = sp.finishPosition;
-        lp.handCount      = sp.handCount !== undefined ? sp.handCount : (sp.hand ? sp.hand.length : lp.handCount);
+        lp.handCount      = sp.handCount !== undefined ? sp.handCount
+                          : (sp.hand ? sp.hand.length : lp.handCount);
         if (sp.hand && sp.hand.length > 0) {
           lp.hand = sp.hand;
         } else if (sp.handCount !== undefined && lp.hand) {
@@ -376,7 +392,7 @@ class TycoonApp {
       while (g.players.length > state.players.length) g.players.pop();
     }
 
-    // Restart client-side timer countdown whenever turn or timer resets
+    // Restart client-side timer when turn changes or timer resets
     if (g.phase === 'playing' &&
         (g.currentTurn !== prevTurn || Math.abs(g.turnTimer - prevTimer) > 2)) {
       this._startClientTimer(g.turnTimer);
@@ -432,7 +448,6 @@ class TycoonApp {
     const hand        = g.getLocalHand();
     const isMyTurn    = g.isPlayerTurn(this.localId);
 
-    // Round display
     const rdEl = document.getElementById('display-round');
     if (rdEl) rdEl.textContent = g.round;
 
@@ -441,20 +456,15 @@ class TycoonApp {
     UI.renderOpponents(state.players, this.localPlayerIndex, g.currentTurn, g.revolutionActive);
     UI.renderPile(g.pile, g.currentPlay);
     UI.renderRevolution(g.revolutionActive);
-
-    // Timer: host reads directly from game; guests read from _lastKnownTimer
     UI.renderTimer(this.isHost ? g.turnTimer : this._lastKnownTimer);
 
-    // Playable cards:
-    //   - My turn:     compute the actual playable set
-    //   - Not my turn: empty Set → all cards render as dimmed/unplayable
+    // Empty Set = all cards dim (not my turn). Computed set = only playable cards lit.
     const playableIds = isMyTurn
       ? Cards.getPlayableCards(hand, g.currentPlay, g.revolutionActive)
       : new Set();
 
     UI.renderHand(hand, this.selectedCards, playableIds, (card) => this.toggleCard(card), g.revolutionActive);
 
-    // Action buttons
     const playBtn = document.getElementById('btn-play');
     const passBtn = document.getElementById('btn-pass');
     const selInfo = document.getElementById('selected-info');
