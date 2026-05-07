@@ -59,17 +59,18 @@ const UI = {
 
       const cardEl = this.createCardEl(card, { selected: isSelected, playable: isPlayable });
 
-      // Stable JS hover — 80ms leave delay prevents bounce when card lifts into cursor
+      // Stable JS hover — 150ms leave delay bridges the gap when card lifts into cursor
       let leaveTimer = null;
       cardEl.addEventListener('mouseenter', () => {
         if (leaveTimer) { clearTimeout(leaveTimer); leaveTimer = null; }
         cardEl.classList.add('card-hovered');
       });
-      cardEl.addEventListener('mouseleave', () => {
+      cardEl.addEventListener('mouseleave', (e) => {
+        // Only remove hover if the mouse moved to something outside this card
         leaveTimer = setTimeout(() => {
           cardEl.classList.remove('card-hovered');
           leaveTimer = null;
-        }, 80);
+        }, 150);
       });
 
       if (isPlayable) {
@@ -231,6 +232,14 @@ const UI = {
         el.appendChild(turnEl);
       }
 
+      // Pass label
+      if (player.passedThisTrick && !player.finished) {
+        const passLabel = document.createElement('div');
+        passLabel.className = 'pass-label';
+        passLabel.textContent = 'PASSED';
+        el.appendChild(passLabel);
+      }
+
       el.appendChild(avatarEl);
       el.appendChild(info);
       el.appendChild(miniCards);
@@ -350,11 +359,8 @@ const UI = {
     entry.innerHTML = `<span class="feed-icon">${icon}</span><span class="feed-text">${html}</span>`;
     feed.insertBefore(entry, feed.firstChild);
 
-    // Remove entry from DOM after 5s (matches CSS animation)
-    setTimeout(() => { if (entry.parentNode) entry.parentNode.removeChild(entry); }, 5000);
-
-    // Cap at 15 simultaneous entries
-    while (feed.children.length > 15) feed.removeChild(feed.lastChild);
+    // Cap at 4 visible entries — remove oldest
+    while (feed.children.length > 4) feed.removeChild(feed.lastChild);
   },
 
   // ---- Waiting Room ----

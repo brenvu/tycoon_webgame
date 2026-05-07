@@ -44,6 +44,7 @@ class TycoonGame {
     this.onGameOver = null;
     this.onActionLog = null;
     this.recentLogs = []; // last N log messages for broadcasting to guests
+    this.logSeq = 0; // monotonic counter — never resets
     this.previousTycoon = -1;
     this.tycoonBankruptCheck = false;
   }
@@ -71,7 +72,7 @@ class TycoonGame {
     this.passCount = 0;
     this.revolutionActive = false;
     this.finishOrder = [];
-    this.recentLogs = []; // clear log buffer each round
+    // Note: recentLogs is NOT cleared here — guests use seq numbers to deduplicate
 
     // Only deal new cards if hands weren't already set by exchange
     const handsAlreadyDealt = this.players.every(p => p.hand && p.hand.length > 0);
@@ -338,8 +339,9 @@ class TycoonGame {
       return { ok: true };
     }
 
-    // Move to next player
+    // Move to next player — new card played, clear pass state
     this.passCount = 0;
+    this.players.forEach(p => { p.passedThisTrick = false; });
     this.advanceTurn();
     this._notify();
     this.startTurnTimer();
@@ -351,16 +353,20 @@ class TycoonGame {
 
     const player = this.players[this.currentTurn];
     this._log(`${player.nickname} passed.`);
+    player.passedThisTrick = true;
     this.passCount++;
 
-    // Count active (non-finished) players still in this trick
-    const activePlayers = this.players.filter(p => !p.finished).length;
+    // Find who last played a card (they won't pass — they win if everyone else passes)
+    const lastPlayerId = this.currentPlay?.playerId;
+    const lastPlayerIdx = this.players.findIndex(p => p.id === lastPlayerId);
 
-    // If all remaining players passed (except last player who played), clear pile
-    if (this.passCount >= activePlayers - 1) {
-      // Find who played last
-      const lastPlayerId = this.currentPlay?.playerId;
-      const lastPlayerIdx = this.players.findIndex(p => p.id === lastPlayerId);
+    // Count players who still need to pass: non-finished AND not the last player who played
+    const needToPass = this.players.filter(p =>
+      !p.finished && p.id !== lastPlayerId && !p.passedThisTrick
+    ).length;
+
+    if (needToPass === 0) {
+      // Everyone else has passed — last player wins the trick
       this._log(`All others passed. ${this.players[lastPlayerIdx]?.nickname || 'Someone'} wins the trick!`);
       this.clearPile(lastPlayerIdx !== -1 ? lastPlayerIdx : this.currentTurn);
     } else {
@@ -374,6 +380,8 @@ class TycoonGame {
     this.pile = [];
     this.currentPlay = null;
     this.passCount = 0;
+    // Clear per-player pass flags for new trick
+    this.players.forEach(p => { p.passedThisTrick = false; });
     this.currentTurn = nextPlayerIdx;
 
     // Skip finished players
@@ -488,9 +496,10 @@ class TycoonGame {
 
   _log(msg) {
     if (this.onActionLog) this.onActionLog(msg);
-    // Keep a rolling buffer of recent logs for broadcasting
-    this.recentLogs.push(msg);
-    if (this.recentLogs.length > 10) this.recentLogs.shift();
+    // Keep a rolling buffer with seq numbers for guest deduplication
+    this.logSeq++;
+    this.recentLogs.push({ seq: this.logSeq, msg });
+    if (this.recentLogs.length > 20) this.recentLogs.shift();
   }
 
   _notify() {
@@ -509,6 +518,7 @@ class TycoonGame {
         handCount: p.hand.length,
         finished: p.finished,
         finishPosition: p.finishPosition,
+        passedThisTrick: p.passedThisTrick || false,
         connected: p.connected
       })),
       round: this.round,
@@ -523,6 +533,7 @@ class TycoonGame {
       exchangesDone: [...this.exchangesDone],
       exchangeNewHands: this.exchangeNewHands,
       recentLogs: [...this.recentLogs],
+      logSeq: this.logSeq,
       localPlayerIndex: this.localPlayerIndex
     };
   }

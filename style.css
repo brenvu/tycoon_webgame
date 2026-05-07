@@ -528,10 +528,11 @@ select option { background: #1a1a1f; }
   justify-content: center;
   align-items: flex-start;
   gap: 12px;
-  padding: 10px 12px 6px;
+  padding: 18px 12px 6px; /* extra top padding for "THEIR TURN" indicator */
   background: rgba(0,0,0,0.3);
   flex-shrink: 0;
   flex-wrap: wrap;
+  overflow: visible;
 }
 
 .opponent-panel {
@@ -624,13 +625,13 @@ select option { background: #1a1a1f; }
 
 .active-turn-indicator {
   position: absolute;
-  top: -10px; left: 50%;
+  top: -18px; left: 50%;
   transform: translateX(-50%);
   background: var(--p5-red);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 2px;
-  padding: 2px 8px;
+  padding: 3px 10px;
   color: white;
   white-space: nowrap;
   clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 50%, calc(100% - 6px) 100%, 6px 100%, 0 50%);
@@ -842,25 +843,14 @@ select option { background: #1a1a1f; }
   will-change: transform;
 }
 
-/* Invisible hover-zone below card — bridges the gap when card lifts */
-.hand-cards .card-el::after {
-  content: '';
-  position: absolute;
-  bottom: -20px;
-  left: 0;
-  right: 0;
-  height: 24px;
-  pointer-events: auto;
-}
-
 .card-el:first-child { margin-left: 0; }
 
-/* Use JS-added class for hover so we control when it's removed */
+/* JS-controlled hover class — no CSS :hover to avoid bounce */
 .hand-cards .card-el.card-hovered:not(.unplayable):not(.selected) {
-  transform: translateY(-12px);
+  transform: translateY(-14px);
   z-index: 10;
-  box-shadow: 0 10px 24px rgba(0,0,0,0.7);
-  border-color: rgba(255,255,255,0.4);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.75);
+  border-color: rgba(255,255,255,0.45);
 }
 
 .card-el.selected {
@@ -935,7 +925,25 @@ select option { background: #1a1a1f; }
 .timer-center-num.timer-crit { color: #ff2200; animation: timerBlink 0.3s ease-in-out infinite alternate; }
 
 .selected-info {
-  display: none; /* hidden — info now in feed */
+  font-size: 11px;
+  color: #888;
+  letter-spacing: 1px;
+  flex: 0;
+  white-space: nowrap;
+}
+
+/* Pass label on opponent cards */
+.pass-label {
+  position: absolute;
+  bottom: 4px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(100, 100, 130, 0.85);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  padding: 2px 6px;
+  color: #ccc;
+  white-space: nowrap;
 }
 
 /* Exchange banner — inline on game screen */
@@ -1002,45 +1010,40 @@ select option { background: #1a1a1f; }
 .feed-entry {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
-  padding: 5px 10px 5px 8px;
+  gap: 7px;
+  padding: 7px 12px 7px 10px;
   margin: 0 2px;
-  border-left: 3px solid transparent;
-  background: rgba(8, 4, 12, 0.9);
-  font-size: 11px;
-  letter-spacing: 0.3px;
+  border-left: 3px solid rgba(255,255,255,0.15);
+  background: rgba(8, 4, 12, 0.92);
+  font-size: 13px;
+  letter-spacing: 0.2px;
   line-height: 1.4;
-  color: rgba(255,255,255,0.82);
-  animation: feedIn 0.2s ease forwards, feedOut 0.6s ease 4.4s forwards;
+  color: rgba(255,255,255,0.90);
+  animation: feedIn 0.2s ease forwards;
   flex-shrink: 0;
 }
 
 @keyframes feedIn {
-  from { opacity: 0; transform: translateX(-10px); }
+  from { opacity: 0; transform: translateX(-8px); }
   to   { opacity: 1; transform: translateX(0); }
 }
 
-@keyframes feedOut {
-  from { opacity: 1; max-height: 60px; margin-bottom: 0; }
-  to   { opacity: 0; max-height: 0; margin-bottom: -3px; padding-top: 0; padding-bottom: 0; }
-}
-
 .feed-entry .feed-icon {
-  font-size: 13px;
+  font-size: 14px;
   flex-shrink: 0;
   margin-top: 1px;
 }
 
 .feed-entry .feed-text { flex: 1; word-break: break-word; white-space: normal; }
-.feed-entry .feed-text strong { font-weight: 700; }
+.feed-entry .feed-text strong { font-weight: 700; color: #fff; }
 
-/* Entry type colors */
-.feed-entry.feed-play   { border-color: rgba(255,255,255,0.2); }
-.feed-entry.feed-pass   { border-color: rgba(100,100,120,0.5); color: rgba(255,255,255,0.45); }
-.feed-entry.feed-special { border-color: #f5a623; background: rgba(40,20,0,0.92); color: #f5c842; }
-.feed-entry.feed-revolution { border-color: #c03fff; background: rgba(30,0,50,0.95); color: #e07fff; }
-.feed-entry.feed-finish { border-color: #ffd700; background: rgba(30,25,0,0.92); color: #ffd700; }
-.feed-entry.feed-system { border-color: rgba(232,0,28,0.6); color: rgba(255,255,255,0.5); font-style: italic; }
+/* Only special events get color — normal play/pass/system stay white */
+.feed-entry.feed-play     { border-color: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); }
+.feed-entry.feed-pass     { border-color: rgba(150,150,170,0.3);  color: rgba(255,255,255,0.55); font-size: 12px; }
+.feed-entry.feed-system   { border-color: rgba(232,0,28,0.4);     color: rgba(255,255,255,0.55); font-size: 12px; font-style: italic; }
+.feed-entry.feed-finish   { border-color: #ffd700; background: rgba(30,25,0,0.95); color: #ffd700; font-weight: 600; }
+.feed-entry.feed-special  { border-color: #f5a623; background: rgba(40,20,0,0.95); color: #f5c842; font-weight: 700; }
+.feed-entry.feed-revolution { border-color: #c03fff; background: rgba(30,0,50,0.97); color: #e07fff; font-weight: 700; }
 
 /* Keep action-log for compat but hide it */
 .action-log { display: none; }

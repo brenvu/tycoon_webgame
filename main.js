@@ -19,7 +19,9 @@ class TycoonApp {
     this._lastKnownTimer = 90;
     this._receivedModalShown = false;
     this._exchangeSubmitted = false;
-    this._lastSeenLogCount = 0;
+    this._lastSeenLogSeq = 0;
+    this._pendingReceivedCards = null;
+    this._prevPhase = null;
 
     this.game.onStateChange = (state) => this.onGameStateChange(state);
     this.game.onActionLog = (msg) => UI.addLogEntry(msg);
@@ -274,7 +276,8 @@ class TycoonApp {
             rank: p.rank, score: p.score,
             hand: i === guestIdx ? p.hand : [],
             handCount: p.hand ? p.hand.length : 0,
-            finished: p.finished, finishPosition: p.finishPosition
+            finished: p.finished, finishPosition: p.finishPosition,
+            passedThisTrick: p.passedThisTrick || false
           })),
           round:            this.game.round,
           currentTurn:      this.game.currentTurn,
@@ -289,11 +292,11 @@ class TycoonApp {
           exchangesDone:    [...this.game.exchangesDone],
           // Only send this player's own new exchange hand
           exchangeNewHand:  this.game.exchangeNewHands[guestId] || null,
-          // Log messages for guest event feed
+          // Log messages for guest event feed (tagged with seq numbers)
           recentLogs: this.game.recentLogs ? [...this.game.recentLogs] : [],
-          // Cards this guest received (isNew flag) for modal
-          receivedCardIds: (this.game.players[guestIdx]?.hand || [])
-            .filter(c => c.isNew).map(c => c.id)
+          logSeq: this.game.logSeq || 0,
+          // Cards this guest received — only sent once right after exchange completes
+          receivedCardIds: (this._pendingReceivedCards && this._pendingReceivedCards[guestId]) || []
         }
       };
     });
@@ -387,6 +390,7 @@ class TycoonApp {
         lp.finished       = sp.finished;
         lp.finishPosition = sp.finishPosition;
         lp.handCount      = sp.handCount || 0;
+        lp.passedThisTrick = sp.passedThisTrick || false;
         if (sp.hand && sp.hand.length > 0) lp.hand = sp.hand;
         else if (lp.handCount === 0) lp.hand = [];
       });
@@ -397,14 +401,14 @@ class TycoonApp {
       this._startClientTimer(g.turnTimer);
     }
 
-    // Replay new log entries for guests
+    // Replay new log entries for guests using seq-based deduplication
     if (state.recentLogs && Array.isArray(state.recentLogs)) {
-      const lastSeen = this._lastSeenLogCount || 0;
-      const newLogs = state.recentLogs.slice(lastSeen);
-      newLogs.forEach(msg => UI.addLogEntry(msg));
-      this._lastSeenLogCount = state.recentLogs.length;
-      // Reset counter when logs are cleared (new round resets recentLogs)
-      if (state.recentLogs.length < lastSeen) this._lastSeenLogCount = state.recentLogs.length;
+      const lastSeenSeq = this._lastSeenLogSeq || 0;
+      const newEntries = state.recentLogs.filter(e => e && e.seq && e.seq > lastSeenSeq);
+      newEntries.forEach(e => UI.addLogEntry(e.msg));
+      if (newEntries.length > 0) {
+        this._lastSeenLogSeq = newEntries[newEntries.length - 1].seq;
+      }
     }
 
     // Mark received cards for guest modal
@@ -439,9 +443,24 @@ class TycoonApp {
 
   onGameStateChange(state) {
     this.renderGameState();
-    if (this.isHost) this._broadcastFullState();
-    
+
     const phase = state.phase;
+    if (phase === 'playing' && this.isHost && this._prevPhase === 'exchange') {
+      // Exchange just finished — collect received cards for each guest for one-shot delivery
+      this._pendingReceivedCards = {};
+      this.game.players.forEach(p => {
+        const newCards = (p.hand || []).filter(c => c.isNew).map(c => c.id);
+        if (newCards.length > 0) this._pendingReceivedCards[p.id] = newCards;
+      });
+    }
+    this._prevPhase = phase;
+
+    if (this.isHost) this._broadcastFullState();
+    // Clear pending after one broadcast cycle
+    if (this._pendingReceivedCards && Object.keys(this._pendingReceivedCards).length > 0) {
+      setTimeout(() => { this._pendingReceivedCards = null; }, 200);
+    }
+
     if (phase === 'exchange') {
       UI.showScreen('game');
       this.renderExchangeOnGameScreen();
@@ -490,7 +509,9 @@ class TycoonApp {
 
     if (selInfo) {
       if (localPlayer && localPlayer.finished) {
-          selInfo.textContent = "You finished! Waiting for others...";
+        selInfo.textContent = "You finished! Waiting for others...";
+      } else if (localPlayer && localPlayer.passedThisTrick) {
+        selInfo.textContent = "You passed — waiting for others...";
       } else if (!isMyTurn) {
         const curr = g.players[g.currentTurn];
         selInfo.textContent = curr ? 'Waiting for ' + curr.nickname + '...' : 'Waiting...';
