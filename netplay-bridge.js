@@ -56,7 +56,16 @@ const JOIN_TIMEOUT_MS = 15000;
 
 class TycoonNetwork {
   constructor() {
-    this.peer        = null;
+    this.peer = new Peer(id, {
+    debug: 2,
+    config: {
+        'iceServers': [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+        ]
+    }
+});
     this.connections = [];
     this.roomCode    = null;
     this.isHost      = false;
