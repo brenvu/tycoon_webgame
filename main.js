@@ -165,10 +165,9 @@ class TycoonApp {
 
   async joinGame() {
     this.saveProfile();
-    const raw = document.getElementById('input-room-code').value.trim();
-    const normalized = raw.replace(/[-\s]/g, '');
-    if (!normalized || normalized.length !== 22) {
-      this.showError('Enter the full 22-character room code (paste it from the host).');
+    const raw = document.getElementById('input-room-code').value.trim().toUpperCase().replace(/\s/g, '');
+    if (!raw || raw.length < 4 || raw.length > 8) {
+      this.showError('Enter the 6-character room code shown on the host\'s screen.');
       return;
     }
     if (!this.playerInfo.nickname) { this.showError('Please enter a nickname.'); return; }
@@ -181,7 +180,7 @@ class TycoonApp {
     this.isHost = false;
 
     this.net.onJoinSuccess = () => {
-      document.getElementById('display-room-code').textContent = raw.toUpperCase();
+      document.getElementById('display-room-code').textContent = raw;
       document.getElementById('waiting-room').classList.remove('hidden');
       joinBtn.textContent = 'JOIN ROOM';
       joinBtn.disabled = false;
@@ -199,7 +198,6 @@ class TycoonApp {
     };
 
     this.net.onConnectionChange = () => this.renderWaiting();
-
     this.net.onGameAction = (action, fromId) => this.handleRemoteAction(action, fromId);
 
     this.net.onError = (msg) => {
@@ -209,7 +207,7 @@ class TycoonApp {
     };
 
     try {
-      await this.net.join(normalized, this.playerInfo);
+      await this.net.join(raw, this.playerInfo);
       this.localId = this.net.getLocalId();
     } catch(e) {
       joinBtn.textContent = 'JOIN ROOM';
@@ -223,16 +221,14 @@ class TycoonApp {
   }
 
   copyRoomCode() {
-    const displayed = document.getElementById('display-room-code').textContent;
-    // Copy clean version (no dashes) so it works when pasted into the join field
-    const clean = displayed.replace(/[-\s]/g, '');
-    navigator.clipboard.writeText(clean).then(() => {
-      UI.showToast('Room code copied! Share it with friends.');
-      document.getElementById('btn-copy-code').textContent = '✓ Copied';
-      setTimeout(() => { document.getElementById('btn-copy-code').textContent = '⧉ Copy'; }, 2000);
+    const code = document.getElementById('display-room-code').textContent.trim();
+    navigator.clipboard.writeText(code).then(() => {
+      UI.showToast('Room code copied!');
+      const btn = document.getElementById('btn-copy-code');
+      btn.textContent = '✓ Copied';
+      setTimeout(() => { btn.textContent = '⧉ Copy'; }, 2000);
     }).catch(() => {
-      // Fallback: select the text
-      UI.showToast(`Code: ${displayed}`);
+      UI.showToast(`Room code: ${code}`);
     });
   }
 

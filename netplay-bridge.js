@@ -1,66 +1,79 @@
 // ============================================================
 // TYCOON — P2P Network Bridge (PeerJS)
-// Room code = base-58 encoded PeerJS UUID — no KV store needed.
-// Works on GitHub Pages and itch.io with zero server config.
+// ============================================================
+// Strategy: Host registers with PeerJS using a custom peer ID
+// that IS the room code (prefixed to avoid collisions).
+// Guest connects using the room code directly — no encoding,
+// no KV store, no external services. Works on GitHub Pages
+// and itch.io as long as PeerJS broker is reachable.
+//
+// Room code format: 6 uppercase alphanumeric chars (e.g. "K7X2MP")
+// PeerJS peer ID used: "tycoon-" + roomCode (e.g. "tycoon-K7X2MP")
 // ============================================================
 
-const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+const PEER_ID_PREFIX = 'tycoon-room-';
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
-function uuidToRoomCode(uuid) {
-  const hex = uuid.replace(/-/g, '');
-  let n = BigInt('0x' + hex);
-  const base = BigInt(58);
-  let encoded = '';
-  while (n > 0n) {
-    encoded = BASE58_ALPHABET[Number(n % base)] + encoded;
-    n = n / base;
+function generateRoomCode() {
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
   }
-  while (encoded.length < 22) encoded = '1' + encoded;
-  return encoded;
+  return code;
 }
 
-function roomCodeToUUID(code) {
-  let n = 0n;
-  const base = BigInt(58);
-  for (const ch of code) {
-    const val = BASE58_ALPHABET.indexOf(ch);
-    if (val === -1) return null;
-    n = n * base + BigInt(val);
+function codeToPeerId(code) {
+  return PEER_ID_PREFIX + code.toUpperCase();
+}
+
+function peerIdToCode(peerId) {
+  return peerId.replace(PEER_ID_PREFIX, '').toUpperCase();
+}
+
+// PeerJS broker options — try multiple in order
+const BROKER_CONFIGS = [
+  // Official PeerJS cloud (most reliable)
+  {
+    host: '0.peerjs.com',
+    port: 443,
+    path: '/',
+    secure: true,
+    pingInterval: 5000,
+    config: {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478' },
+        // Free TURN server for users behind strict NAT
+        {
+          urls: 'turn:openrelay.metered.ca:80',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        }
+      ]
+    }
   }
-  const hex = n.toString(16).padStart(32, '0');
-  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`;
-}
-
-function isValidUUID(str) {
-  return str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-}
-
-// Format 22-char code as groups for display/copy
-function formatCode(code) {
-  // Split as: XXXX-XXXX-XXXX-XXXX-XXXXXX  (4-4-4-4-6)
-  return code.slice(0,4) + '-' + code.slice(4,8) + '-' + code.slice(8,12) + '-' + code.slice(12,16) + '-' + code.slice(16,22);
-}
-
-function parseEnteredCode(entered) {
-  return entered.replace(/[-\s]/g, '').trim();
-}
-
-// ============================================================
+];
 
 class TycoonNetwork {
   constructor() {
     this.peer = null;
     this.connections = [];
-    this.fullCode = null;
-    this.displayCode = null;
+    this.roomCode = null;       // 6-char display code e.g. "K7X2MP"
     this.isHost = false;
     this.localId = null;
     this.playerInfo = null;
+    this._brokerIdx = 0;
 
     this.onPlayerJoined     = null;
     this.onPlayerLeft       = null;
     this.onGameAction       = null;
-    this.onRoomReady        = null;
+    this.onRoomReady        = null; // (roomCode: string)
     this.onJoinSuccess      = null;
     this.onError            = null;
     this.onConnectionChange = null;
@@ -69,99 +82,158 @@ class TycoonNetwork {
     this.MAX_PLAYERS = 4;
   }
 
-  _initPeer() {
-    return new Promise((resolve, reject) => {
-      const opts = {
-        debug: 0,
-        config: {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:global.stun.twilio.com:3478' }
-          ]
-        }
-      };
+  // ---- Internal: create a Peer with a specific ID ----
 
+  _createPeer(customId) {
+    return new Promise((resolve, reject) => {
+      const brokerOpts = BROKER_CONFIGS[this._brokerIdx % BROKER_CONFIGS.length];
+      const opts = { ...brokerOpts };
+
+      let peer;
       try {
-        this.peer = new Peer(opts);
+        peer = customId ? new Peer(customId, opts) : new Peer(opts);
       } catch(e) {
-        reject(new Error('PeerJS not loaded. Check your internet connection.'));
+        reject(new Error('PeerJS failed to initialize: ' + e.message));
         return;
       }
 
       const timer = setTimeout(() => {
-        reject(new Error('Signaling server timeout. Check your connection.'));
-      }, 15000);
+        peer.destroy();
+        reject(new Error('timeout'));
+      }, 12000);
 
-      this.peer.on('open', id => {
+      peer.on('open', id => {
         clearTimeout(timer);
+        this.peer = peer;
         this.localId = id;
-        console.log('[Net] Peer open:', id);
+        console.log('[Net] Peer open, ID:', id);
         resolve(id);
       });
 
-      this.peer.on('error', err => {
+      peer.on('error', err => {
         clearTimeout(timer);
-        console.error('[Net] Error:', err.type, err.message);
-        if (this.onError) this.onError(this._friendlyError(err));
-        reject(err);
+        console.error('[Net] Peer error:', err.type, err.message || '');
+
+        // If the custom ID is already taken, try a new room code
+        if (customId && (err.type === 'unavailable-id' || err.type === 'invalid-id')) {
+          peer.destroy();
+          reject({ type: 'id-taken', err });
+        } else {
+          peer.destroy();
+          reject(err);
+        }
       });
 
-      this.peer.on('connection', conn => {
+      peer.on('connection', conn => {
         if (this.isHost) this._handleIncoming(conn);
       });
 
-      this.peer.on('disconnected', () => {
-        console.warn('[Net] Disconnected from broker, reconnecting...');
-        setTimeout(() => { try { this.peer.reconnect(); } catch(e) {} }, 3000);
+      peer.on('disconnected', () => {
+        console.warn('[Net] Peer disconnected from broker, reconnecting...');
+        setTimeout(() => {
+          if (this.peer && !this.peer.destroyed) {
+            try { this.peer.reconnect(); } catch(e) {}
+          }
+        }, 3000);
       });
     });
   }
+
+  // ---- HOST ----
 
   async host(playerInfo) {
     this.playerInfo = playerInfo;
     this.isHost = true;
 
-    const peerId = await this._initPeer();
-    this.fullCode = uuidToRoomCode(peerId);
-    this.displayCode = formatCode(this.fullCode);
+    // Try up to 5 different room codes in case of ID collision
+    let attempts = 0;
+    while (attempts < 5) {
+      const code = generateRoomCode();
+      const peerId = codeToPeerId(code);
+      console.log('[Net] Trying room code:', code, '-> peer ID:', peerId);
 
-    this.allPlayers = [{ id: peerId, nickname: playerInfo.nickname, avatar: playerInfo.avatar, isHost: true }];
+      try {
+        await this._createPeer(peerId);
+        this.roomCode = code;
 
-    console.log('[Net] Room code:', this.displayCode);
+        this.allPlayers = [{
+          id: this.localId,
+          nickname: playerInfo.nickname,
+          avatar: playerInfo.avatar,
+          isHost: true
+        }];
 
-    if (this.onRoomReady) this.onRoomReady(this.displayCode);
-    if (this.onConnectionChange) this.onConnectionChange();
-    return this.displayCode;
+        console.log('[Net] Hosting room:', this.roomCode);
+        if (this.onRoomReady) this.onRoomReady(this.roomCode);
+        if (this.onConnectionChange) this.onConnectionChange();
+        return this.roomCode;
+
+      } catch(e) {
+        if (e && e.type === 'id-taken') {
+          console.warn('[Net] Room code taken, trying another...');
+          attempts++;
+          continue;
+        }
+        // Real error
+        const msg = this._friendlyError(e.err || e);
+        if (this.onError) this.onError(msg);
+        throw e;
+      }
+    }
+
+    const msg = 'Could not create a room after several attempts. Please try again.';
+    if (this.onError) this.onError(msg);
+    throw new Error(msg);
   }
+
+  // ---- JOIN ----
 
   async join(enteredCode, playerInfo) {
     this.playerInfo = playerInfo;
     this.isHost = false;
 
-    const raw = parseEnteredCode(enteredCode);
-    if (raw.length !== 22) {
-      if (this.onError) this.onError('Room code must be 22 characters (use the full code from the host).');
-      throw new Error('bad code length');
+    // Clean and validate the code
+    const code = enteredCode.replace(/\s/g, '').toUpperCase();
+    if (code.length < 4 || code.length > 8) {
+      const msg = 'Invalid room code. Codes are 6 characters (e.g. "K7X2MP").';
+      if (this.onError) this.onError(msg);
+      throw new Error(msg);
     }
 
-    const hostPeerId = roomCodeToUUID(raw);
-    if (!isValidUUID(hostPeerId)) {
-      if (this.onError) this.onError('Invalid room code. Copy the full code from the host.');
-      throw new Error('bad uuid');
+    const hostPeerId = codeToPeerId(code);
+    console.log('[Net] Joining host peer ID:', hostPeerId);
+
+    // Initialize our own peer (with random ID)
+    try {
+      await this._createPeer(null);
+    } catch(e) {
+      const msg = this._friendlyError(e);
+      if (this.onError) this.onError(msg);
+      throw e;
     }
 
-    console.log('[Net] Joining peer:', hostPeerId);
-    await this._initPeer();
-
+    // Connect to host
     return new Promise((resolve, reject) => {
-      const conn = this.peer.connect(hostPeerId, { reliable: true, serialization: 'json' });
+      let conn;
+      try {
+        conn = this.peer.connect(hostPeerId, {
+          reliable: true,
+          serialization: 'json',
+          metadata: { version: 1 }
+        });
+      } catch(e) {
+        const msg = 'Failed to initiate connection: ' + (e.message || e);
+        if (this.onError) this.onError(msg);
+        reject(e);
+        return;
+      }
 
       const timer = setTimeout(() => {
-        if (this.onError) this.onError('Could not reach host. Room may be closed or invalid.');
-        try { conn.close(); } catch(e) {}
+        const msg = `Room "${code}" not found. Check the code or ask the host to share it again.`;
+        if (this.onError) this.onError(msg);
+        try { conn.close(); } catch(e2) {}
         reject(new Error('timeout'));
-      }, 15000);
+      }, 12000);
 
       conn.on('open', () => {
         clearTimeout(timer);
@@ -170,18 +242,29 @@ class TycoonNetwork {
         this._setupConn(conn);
         this._send(conn, {
           type: 'join',
-          player: { id: this.localId, nickname: playerInfo.nickname, avatar: playerInfo.avatar, isHost: false }
+          player: {
+            id: this.localId,
+            nickname: playerInfo.nickname,
+            avatar: playerInfo.avatar,
+            isHost: false
+          }
         });
         resolve();
       });
 
       conn.on('error', err => {
         clearTimeout(timer);
-        if (this.onError) this.onError(`Connection failed: ${err.message || err.type}`);
+        console.error('[Net] Connect error:', err.type, err.message || '');
+        const msg = err.type === 'peer-unavailable'
+          ? `Room "${code}" not found. Make sure the host has created the room and you have the right code.`
+          : this._friendlyError(err);
+        if (this.onError) this.onError(msg);
         reject(err);
       });
     });
   }
+
+  // ---- Incoming Connection (host side) ----
 
   _handleIncoming(conn) {
     if (this.allPlayers.length >= this.MAX_PLAYERS) {
@@ -191,16 +274,21 @@ class TycoonNetwork {
       });
       return;
     }
+
     conn.on('open', () => {
-      console.log('[Net] Incoming:', conn.peer);
+      console.log('[Net] Incoming connection:', conn.peer);
       this.connections.push(conn);
       this._setupConn(conn);
     });
-    conn.on('error', err => console.error('[Net] Incoming error:', err));
+
+    conn.on('error', err => {
+      console.error('[Net] Incoming conn error:', err);
+    });
   }
 
   _setupConn(conn) {
     conn.on('data', data => this._handleMsg(conn, data));
+
     conn.on('close', () => {
       this.connections = this.connections.filter(c => c !== conn);
       const player = this.allPlayers.find(p => p.id === conn.peer);
@@ -217,13 +305,16 @@ class TycoonNetwork {
     });
   }
 
+  // ---- Message Handling ----
+
   _handleMsg(conn, data) {
     if (!data || !data.type) return;
-    console.log('[Net] Msg:', data.type, '| host:', this.isHost);
+    console.log('[Net] Msg:', data.type, '| isHost:', this.isHost);
 
     if (this.isHost) {
-      if (data.type === 'join') this._onGuestJoined(conn, data.player);
-      else if (data.type === 'action') {
+      if (data.type === 'join') {
+        this._onGuestJoined(conn, data.player);
+      } else if (data.type === 'action') {
         if (this.onGameAction) this.onGameAction(data.action, conn.peer);
       }
     } else {
@@ -238,7 +329,9 @@ class TycoonNetwork {
           conn.close();
           break;
         case 'player_joined':
-          if (!this.allPlayers.find(p => p.id === data.player.id)) this.allPlayers.push(data.player);
+          if (!this.allPlayers.find(p => p.id === data.player.id)) {
+            this.allPlayers.push(data.player);
+          }
           if (this.onPlayerJoined) this.onPlayerJoined(data.player);
           if (this.onConnectionChange) this.onConnectionChange();
           break;
@@ -258,17 +351,24 @@ class TycoonNetwork {
   }
 
   _onGuestJoined(conn, player) {
-    if (this.allPlayers.find(p => p.id === player.id)) return;
+    if (this.allPlayers.find(p => p.id === player.id)) return; // dedupe
     this.allPlayers.push(player);
+
     if (this.onPlayerJoined) this.onPlayerJoined(player);
     if (this.onConnectionChange) this.onConnectionChange();
 
+    // Tell the joiner: welcome + full player list
     this._send(conn, { type: 'welcome', players: this.allPlayers });
 
+    // Tell all other guests about the new player
     this.connections.forEach(c => {
-      if (c !== conn && c.open) this._send(c, { type: 'player_joined', player });
+      if (c !== conn && c.open) {
+        this._send(c, { type: 'player_joined', player });
+      }
     });
   }
+
+  // ---- Sending ----
 
   _send(conn, data) {
     if (conn && conn.open) {
@@ -285,7 +385,9 @@ class TycoonNetwork {
   }
 
   broadcastAction(action, sourceId) {
-    this.connections.forEach(conn => this._send(conn, { type: 'action', action, playerId: sourceId }));
+    this.connections.forEach(conn => {
+      this._send(conn, { type: 'action', action, playerId: sourceId });
+    });
   }
 
   sendAction(action) {
@@ -293,8 +395,10 @@ class TycoonNetwork {
       if (this.onGameAction) this.onGameAction(action, this.localId);
       return;
     }
-    const host = this.connections[0];
-    if (host) this._send(host, { type: 'action', action, player: { id: this.localId } });
+    const hostConn = this.connections[0];
+    if (hostConn) {
+      this._send(hostConn, { type: 'action', action, player: { id: this.localId } });
+    }
   }
 
   _filterState(state, playerId) {
@@ -313,22 +417,26 @@ class TycoonNetwork {
     this.peer = null;
     this.connections = [];
     this.allPlayers = [];
+    this.roomCode = null;
   }
 
   _friendlyError(err) {
-    const t = (err && err.type) || '';
-    if (t === 'peer-unavailable') return 'Cannot reach host. The room may be closed or the code is wrong.';
-    if (t === 'network') return 'Network error. Check your internet connection.';
-    if (t === 'server-error') return 'Signaling server error. Please try again.';
-    if (t === 'socket-error' || t === 'socket-closed') return 'Socket error. Please try again.';
-    if (t === 'unavailable-id') return 'Could not connect. Please try again.';
-    if (t === 'browser-incompatible') return 'Your browser does not support WebRTC. Use Chrome or Firefox.';
-    return `Connection error: ${(err && err.message) || t || 'unknown'}`;
+    if (!err) return 'Unknown connection error.';
+    const t = err.type || '';
+    if (t === 'peer-unavailable')    return 'Room not found. Check the code and make sure the host has created the room.';
+    if (t === 'network')             return 'Network error. Check your internet connection.';
+    if (t === 'server-error')        return 'Signaling server error. Please try again in a moment.';
+    if (t === 'socket-error' || t === 'socket-closed') return 'Connection lost. Please try again.';
+    if (t === 'unavailable-id')      return 'Room ID conflict. Please try again.';
+    if (t === 'browser-incompatible') return 'Your browser does not support WebRTC. Please use Chrome or Firefox.';
+    if (err instanceof Error)        return err.message;
+    return `Connection error: ${err.message || t || 'unknown'}`;
   }
 
   getPlayerCount() { return this.allPlayers.length; }
   getPlayers()     { return this.allPlayers; }
   getLocalId()     { return this.localId; }
+  getRoomCode()    { return this.roomCode; }
 }
 
 window.TycoonNetwork = TycoonNetwork;

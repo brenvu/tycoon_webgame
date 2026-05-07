@@ -368,13 +368,11 @@ select option { background: #1a1a1f; }
 }
 
 .rc-code {
-  font-family: var(--font-mono, 'Courier New', monospace);
-  font-size: 16px;
-  letter-spacing: 2px;
+  font-family: var(--font-display);
+  font-size: 36px;
+  letter-spacing: 8px;
   color: var(--p5-white);
   text-shadow: 0 0 20px rgba(232,0,28,0.6);
-  word-break: break-all;
-  max-width: 320px;
 }
 
 .room-code-hint {
@@ -386,10 +384,10 @@ select option { background: #1a1a1f; }
 
 .code-input {
   text-align: center;
-  font-size: 13px !important;
-  letter-spacing: 2px !important;
+  font-size: 22px !important;
+  letter-spacing: 8px !important;
   text-transform: uppercase;
-  font-family: var(--font-mono, 'Courier New', monospace) !important;
+  font-family: var(--font-display) !important;
   width: 100%;
 }
 
