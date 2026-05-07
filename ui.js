@@ -141,7 +141,10 @@ const UI = {
 
     if (currentPlay) {
       const countLabel = count > 1 ? `${count}× ` : '';
-      const rankName = currentPlay.cards[0]?.joker ? 'JOKER' : (currentPlay.cards[0]?.rank || '');
+      // If joker in a mixed set, show the non-joker rank (joker becomes that number)
+      const nonJokerCard = currentPlay.cards.find(c => !c.joker);
+      const jokerOnly = currentPlay.cards.every(c => c.joker);
+      const rankName = jokerOnly ? 'JOKER' : (nonJokerCard?.rank || currentPlay.cards[0]?.rank || '');
       if (pileInfo) {
         pileInfo.innerHTML = `<span class="pile-player">${currentPlay.playerName}</span> played <span class="pile-cards">${countLabel}${rankName}</span>`;
       }
@@ -204,12 +207,13 @@ const UI = {
         el.appendChild(turnEl);
       }
 
-      // Pass label at bottom of panel
+      // Pass label appended to info after rank (before card count)
       if (player.passedThisTrick && !player.finished) {
         const passLabel = document.createElement('div');
         passLabel.className = 'pass-label';
-        passLabel.textContent = 'PASSED';
-        info.appendChild(passLabel);
+        passLabel.textContent = '— PASSED —';
+        // Insert before cardsEl
+        info.insertBefore(passLabel, cardsEl);
       }
 
       el.appendChild(avatarEl);
@@ -310,7 +314,7 @@ const UI = {
     else if (/REVOLUTION/i.test(msg))               { type = 'feed-revolution'; icon = '⚡'; }
     else if (/COUNTER.REVOLUTION/i.test(msg))       { type = 'feed-revolution'; icon = '🔄'; }
     else if (/8 STOP/i.test(msg))                   { type = 'feed-special';    icon = '🛑'; }
-    else if (/3.*SPADE|SPADE REVERSAL/i.test(msg))  { type = 'feed-special';    icon = '♠'; }
+    else if (/SPADE REVERSAL/i.test(msg))            { type = 'feed-special';    icon = '♠'; }
     else if (/finished|🏆/i.test(msg))              { type = 'feed-finish';     icon = '🏆'; }
     else if (/BANKRUPTCY|bankrupted/i.test(msg))    { type = 'feed-finish';     icon = '💀'; }
     else if (/All others passed|chain ends/i.test(msg)) { type = 'feed-special'; icon = '🔁'; }

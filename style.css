@@ -483,7 +483,7 @@ select option { background: #1a1a1f; }
 .round-label {
   font-size: 11px;
   letter-spacing: 3px;
-  color: var(--p5-red);
+  color: var(--p5-white);
   font-weight: 700;
 }
 
@@ -494,7 +494,7 @@ select option { background: #1a1a1f; }
   line-height: 1;
 }
 
-.round-of { font-size: 14px; color: #888; }
+.round-of { font-size: 36px; font-family: var(--font-display); color: var(--p5-white); }
 
 .topbar-center { flex: 1; display: flex; justify-content: center; }
 
@@ -541,15 +541,16 @@ select option { background: #1a1a1f; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 8px 16px;
   background: var(--p5-panel);
   border: 1px solid var(--p5-panel-border);
-  min-width: 120px;
-  max-width: 160px;
+  min-width: 140px;
+  max-width: 180px;
   position: relative;
   transition: border-color 0.3s, box-shadow 0.3s;
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  overflow: hidden;
 }
 
 .opponent-panel.active-turn {
@@ -598,23 +599,23 @@ select option { background: #1a1a1f; }
 }
 
 .opponent-cards-count {
-  font-size: 10px;
-  color: #999;
+  font-size: 11px;
+  color: var(--p5-white);
   letter-spacing: 1px;
   text-align: center;
   line-height: 1.2;
 }
 
 .cards-left-label {
-  font-size: 9px;
-  color: #777;
+  font-size: 10px;
+  color: #ccc;
   letter-spacing: 1px;
   text-transform: uppercase;
 }
 
 .count-num-big {
   font-family: var(--font-display);
-  font-size: 36px;
+  font-size: 44px;
   color: var(--p5-white);
   line-height: 1;
   display: block;
@@ -645,17 +646,19 @@ select option { background: #1a1a1f; }
 
 .active-turn-indicator {
   background: var(--p5-red);
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 2px;
-  padding: 3px 12px;
+  padding: 4px 0;
   color: white;
   white-space: nowrap;
   text-align: center;
-  width: 100%;
-  order: -1; /* show at top of flex column */
-  margin: -8px -12px 4px -12px; /* bleed to panel edges */
+  /* Bleed to panel edges regardless of padding */
+  width: calc(100% + 32px);
+  margin: -8px -16px 2px -16px;
+  order: -1;
   align-self: stretch;
+  flex-shrink: 0;
 }
 
 .finished-badge {
@@ -956,23 +959,21 @@ select option { background: #1a1a1f; }
 
 .selected-info {
   font-size: 11px;
-  color: #888;
+  color: #aaa;
   letter-spacing: 1px;
-  flex: 0;
   white-space: nowrap;
+  display: none; /* hidden — status is shown in event feed */
 }
 
 /* Pass label inline inside opponent info */
 .pass-label {
-  background: rgba(100, 100, 130, 0.7);
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 2px;
-  padding: 2px 6px;
-  color: #ccc;
+  letter-spacing: 1px;
+  color: #888;
   white-space: nowrap;
   text-align: center;
-  margin-top: 3px;
+  font-style: italic;
 }
 
 /* Exchange banner — inline on game screen */
@@ -1110,22 +1111,15 @@ select option { background: #1a1a1f; }
 .btn-play:disabled { background: #3a1a1f; color: #555; cursor: not-allowed; }
 
 .btn-pass {
-  background: #ffffff;
-  color: #000000;
-  border: 1px solid #ccc;
+  background: #ffffff !important;
+  color: #000000 !important;
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
 }
 
-.btn-pass:hover:not(:disabled) { background: #e8e8e8; border-color: #fff; box-shadow: 0 4px 12px rgba(255,255,255,0.2); }
-.btn-pass:disabled { background: #444; color: #777; border-color: #333; cursor: not-allowed; }
+.btn-pass:hover:not(:disabled) { background: #dddddd !important; box-shadow: 0 4px 12px rgba(255,255,255,0.25); }
+.btn-pass:disabled { background: #555 !important; color: #999 !important; opacity: 0.5; cursor: not-allowed; }
 
-.selected-info {
-  font-size: 11px;
-  color: #666;
-  letter-spacing: 1px;
-  flex: 1;
-  text-align: right;
-}
+
 
 /* ============================================================
    EXCHANGE SCREEN

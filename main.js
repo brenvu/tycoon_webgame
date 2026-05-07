@@ -430,7 +430,8 @@ class TycoonApp {
     } else if (state.phase === 'playing') {
       this._hideExchangeBanner();
       UI.showScreen('game');
-      this._showReceivedCardsToast();
+      // NOTE: guests do NOT call _showReceivedCardsToast here — they get
+      // the 'received_cards' dedicated message from the host instead
     } else if (state.phase === 'round_end') {
       this._stopClientTimer();
       UI.showScreen('round-end');
