@@ -475,6 +475,8 @@ class TycoonApp {
   renderExchangeScreen() {
     const g = this.game;
     const exchangeInfo = g.getExchangeInfo();
+    const hand = g.getLocalHand() || [];
+
     if (!exchangeInfo) {
       // This player has no exchange to do (or already submitted) — show waiting UI
       const title = document.getElementById('exchange-title');
@@ -498,10 +500,35 @@ class TycoonApp {
       }
       return;
     }
+
+    // If hand is empty, show waiting — state hasn't synced yet
+    if (hand.length === 0) {
+      const title = document.getElementById('exchange-title');
+      const desc = document.getElementById('exchange-desc');
+      const handEl = document.getElementById('exchange-hand');
+      const confirmBtn = document.getElementById('btn-confirm-exchange');
+      const selInfo = document.getElementById('exchange-selected-info');
+      if (title) title.textContent = 'CARD EXCHANGE';
+      if (desc) desc.textContent = '';
+      if (selInfo) selInfo.textContent = '';
+      if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.style.display = 'none'; }
+      if (handEl) {
+        handEl.innerHTML = '';
+        const waiting = document.createElement('div');
+        waiting.className = 'exchange-waiting';
+        waiting.innerHTML = `
+          <div class="exchange-waiting-icon">⏳</div>
+          <div class="exchange-waiting-text">Waiting for other players to choose cards...</div>
+        `;
+        handEl.appendChild(waiting);
+      }
+      return;
+    }
+
     // Restore confirm button visibility in case it was hidden
     const confirmBtn = document.getElementById('btn-confirm-exchange');
     if (confirmBtn) confirmBtn.style.display = '';
-    UI.renderExchange(exchangeInfo, g.getLocalHand() || [], this.exchangeSelected, (card) => this.toggleExchangeCard(card), (cards) => this.submitExchange(cards), g.revolutionActive);
+    UI.renderExchange(exchangeInfo, hand, this.exchangeSelected, (card) => this.toggleExchangeCard(card), (cards) => this.submitExchange(cards), g.revolutionActive);
   }
 
   toggleExchangeCard(card) {

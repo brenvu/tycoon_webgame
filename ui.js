@@ -93,34 +93,52 @@ const UI = {
 
     if (!pile || pile.length === 0) {
       emptyMsg.style.display = 'block';
-      pileInfo.textContent = '';
+      if (pileInfo) pileInfo.textContent = '';
       return;
     }
 
     emptyMsg.style.display = 'none';
 
-    // Show last few plays as stacked cards
-    // Display up to last 5 cards in a fan
-    const displayCards = pile.slice(-5);
-    displayCards.forEach((card, i) => {
-      const isTop = i === displayCards.length - 1;
+    // Show the current play's cards prominently fanned side by side
+    const showCards = currentPlay ? currentPlay.cards : pile.slice(-1);
+    const count = showCards.length;
+
+    showCards.forEach((card, i) => {
       const el = this.createCardEl(card, { pile: true });
-      const offset = (i - displayCards.length + 1) * 5;
-      el.style.position = 'absolute';
-      el.style.left = `${50 + offset}%`;
-      el.style.transform = `translateX(-50%) rotate(${offset * 1.2}deg)`;
-      el.style.zIndex = i;
-      if (isTop) {
-        el.classList.add('pile-top');
-        el.style.transform = `translateX(-50%) rotate(0deg) scale(1.08)`;
-        el.style.zIndex = 10;
+      el.classList.add('pile-top');
+
+      if (count === 1) {
+        // Single card: centered, slight tilt
+        el.style.position = 'absolute';
+        el.style.left = '50%';
+        el.style.top = '50%';
+        el.style.transform = 'translate(-50%, -50%) rotate(-2deg) scale(1.05)';
+        el.style.zIndex = 5;
+      } else {
+        // Multiple cards: fan out side by side with slight rotation
+        const spreadPx = Math.min(40, 120 / count); // tighter spread for more cards
+        const totalSpread = spreadPx * (count - 1);
+        const startX = -totalSpread / 2;
+        const rotStep = count <= 2 ? 6 : 4;
+        const startRot = -((count - 1) * rotStep) / 2;
+
+        el.style.position = 'absolute';
+        el.style.left = '50%';
+        el.style.top = '50%';
+        el.style.marginLeft = `${startX + i * spreadPx}px`;
+        el.style.transform = `translate(-50%, -50%) rotate(${startRot + i * rotStep}deg) scale(1.05)`;
+        el.style.zIndex = i + 1;
       }
+
       pileEl.appendChild(el);
     });
 
     if (currentPlay) {
-      const names = currentPlay.cards.map(c => Cards.cardDisplayName(c)).join(', ');
-      pileInfo.innerHTML = `<span class="pile-player">${currentPlay.playerName}</span> played <span class="pile-cards">${names}</span>`;
+      const countLabel = count > 1 ? `${count}x ` : '';
+      const rankName = currentPlay.cards[0]?.joker ? 'JOKER' : (currentPlay.cards[0]?.rank || '');
+      if (pileInfo) {
+        pileInfo.innerHTML = `<span class="pile-player">${currentPlay.playerName}</span> played <span class="pile-cards">${countLabel}${rankName}</span>`;
+      }
     }
   },
 
