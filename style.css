@@ -959,8 +959,10 @@ select option { background: #1a1a1f; }
   background: var(--p5-panel);
   border: 2px solid var(--p5-red);
   padding: 32px;
-  max-width: 700px;
-  width: 90%;
+  max-width: min(95vw, 1100px);
+  width: 95%;
+  max-height: 90vh;
+  overflow-y: auto;
   clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
   display: flex;
   flex-direction: column;
@@ -987,15 +989,45 @@ select option { background: #1a1a1f; }
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
   padding: 12px;
   min-height: 170px;
+  width: 100%;
 }
 
 .exchange-selected-info {
   font-size: 12px;
   color: var(--p5-red);
   letter-spacing: 2px;
+}
+
+.exchange-waiting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 140px;
+  padding: 24px;
+}
+
+.exchange-waiting-icon {
+  font-size: 48px;
+  animation: exchange-pulse 1.5s ease-in-out infinite;
+}
+
+.exchange-waiting-text {
+  font-family: var(--font-display);
+  font-size: 16px;
+  letter-spacing: 3px;
+  color: #aaa;
+  text-align: center;
+}
+
+@keyframes exchange-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.9); }
 }
 
 /* ============================================================

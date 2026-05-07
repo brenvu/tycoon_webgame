@@ -64,17 +64,18 @@ class TycoonGame {
     const deck = Cards.createDeck();
     const hands = Cards.dealCards(deck, this.players.length);
 
-    this.players.forEach((p, i) => {
-      p.hand = Cards.sortHand(hands[i], this.revolutionActive);
-      p.finished = false;
-      p.finishPosition = null;
-    });
-
+    // Reset revolution BEFORE sorting so hands are ordered with normal values
     this.pile = [];
     this.currentPlay = null;
     this.passCount = 0;
     this.revolutionActive = false;
     this.finishOrder = [];
+
+    this.players.forEach((p, i) => {
+      p.hand = Cards.sortHand(hands[i], this.revolutionActive);
+      p.finished = false;
+      p.finishPosition = null;
+    });
 
     // First turn: player with 3♦
     this.currentTurn = Cards.findStartingPlayer(this.players.map(p => p.hand));
@@ -88,6 +89,14 @@ class TycoonGame {
   // ---- Card Exchange (between rounds) ----
 
   setupExchange() {
+    // Reset revolution state so exchange screen shows correct card values
+    this.revolutionActive = false;
+
+    // Re-sort all hands with normal (non-revolution) ordering
+    this.players.forEach(p => {
+      p.hand = Cards.sortHand(p.hand, false);
+    });
+
     // Find ranks
     const tycoon  = this.players.find(p => p.rank === 'tycoon');
     const rich     = this.players.find(p => p.rank === 'rich');
