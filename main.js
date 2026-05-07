@@ -92,6 +92,10 @@ class TycoonApp {
     document.getElementById('btn-play').addEventListener('click', () => this.submitPlay());
     document.getElementById('btn-pass').addEventListener('click', () => this.submitPass());
     document.getElementById('btn-confirm-exchange').addEventListener('click', () => this.submitExchangeFromGame());
+    const modalOk = document.getElementById('btn-modal-received-ok');
+    if (modalOk) modalOk.addEventListener('click', () => {
+      document.getElementById('modal-received')?.classList.add('hidden');
+    });
     document.getElementById('input-room-code').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.joinGame();
     });
@@ -507,15 +511,35 @@ class TycoonApp {
   }
 
   _showReceivedCardsToast() {
-    // Only show if we actually went through an exchange (round > 1)
     if (this.game.round <= 1) return;
     const hand = this.game.getLocalHand() || [];
     const newCards = hand.filter(c => c.isNew);
     if (newCards.length === 0) return;
-    const names = newCards.map(c => Cards.cardDisplayName(c)).join(' & ');
-    UI.showToast(`You received: ${names}`, 5000);
-    // Clear the isNew flag so it doesn't show again
-    hand.forEach(c => { delete c.isNew; });
+
+    // Show modal instead of toast
+    const modal = document.getElementById('modal-received');
+    const cardsContainer = document.getElementById('modal-received-cards');
+    const okBtn = document.getElementById('btn-modal-received-ok');
+
+    if (!modal || !cardsContainer) return;
+
+    // Render the received cards
+    cardsContainer.innerHTML = '';
+    newCards.forEach(card => {
+      const el = UI.createCardEl(card, { playable: true });
+      el.style.margin = '0';
+      cardsContainer.appendChild(el);
+    });
+
+    modal.classList.remove('hidden');
+
+    const dismiss = () => {
+      modal.classList.add('hidden');
+      // Clear isNew flags
+      hand.forEach(c => { delete c.isNew; });
+      okBtn.removeEventListener('click', dismiss);
+    };
+    okBtn.addEventListener('click', dismiss);
   }
 
   renderExchangeOnGameScreen() {

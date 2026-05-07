@@ -809,8 +809,8 @@ select option { background: #1a1a1f; }
 .hand-cards {
   display: flex;
   align-items: flex-end;
-  padding: 28px 8px 0; /* top padding absorbs the hover lift — no layout reflow */
-  min-height: calc(var(--card-h) + 28px);
+  padding: 28px 8px 16px; /* top padding absorbs the hover lift */
+  min-height: calc(var(--card-h) + 44px);
   width: max-content;
   min-width: 100%;
   justify-content: center;
@@ -825,11 +825,22 @@ select option { background: #1a1a1f; }
   border-radius: 4px;
   margin-left: -8px;
   position: relative;
-  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  transition: transform 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
   background-color: #1a0a0a;
   display: inline-block;
   vertical-align: bottom;
   will-change: transform;
+}
+
+/* Invisible hover-zone below card — prevents mouseout when card lifts into cursor */
+.hand-cards .card-el::after {
+  content: '';
+  position: absolute;
+  bottom: -16px;
+  left: -4px;
+  right: -4px;
+  height: 20px;
+  pointer-events: auto;
 }
 
 .card-el:first-child { margin-left: 0; }
@@ -1333,4 +1344,53 @@ select option { background: #1a1a1f; }
   .opponent-panel { min-width: 90px; }
   .card-el { width: 80px; height: 116px; }
   :root { --card-w: 80px; --card-h: 116px; }
+}
+
+/* ============================================================
+   RECEIVED CARDS MODAL
+   ============================================================ */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0,0,0,0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-panel {
+  background: var(--p5-panel);
+  border: 2px solid var(--p5-red);
+  padding: 32px 40px;
+  min-width: 300px;
+  max-width: 90vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+  animation: modalIn 0.2s ease;
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.92) translateY(16px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  letter-spacing: 4px;
+  color: var(--p5-gold);
+  text-align: center;
+}
+
+.modal-received-cards {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 8px 0;
 }

@@ -99,27 +99,45 @@ const UI = {
 
     emptyMsg.style.display = 'none';
 
-    // Show the current play's cards prominently fanned side by side
     const showCards = currentPlay ? currentPlay.cards : pile.slice(-1);
     const count = showCards.length;
 
+    // Show depth: if there are prior plays, render 1-2 face-down cards behind the current play
+    const priorCardsInPile = pile.length - showCards.length;
+    if (priorCardsInPile > 0) {
+      const depthCount = Math.min(2, priorCardsInPile);
+      for (let d = 0; d < depthCount; d++) {
+        const depthEl = this.createCardEl(null, { faceDown: true, pile: true });
+        depthEl.style.position = 'absolute';
+        depthEl.style.left = '50%';
+        depthEl.style.top = '50%';
+        // Offset each depth card slightly behind and to the side
+        const offsetX = (d + 1) * 6;
+        const offsetY = (d + 1) * -5;
+        depthEl.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px)) rotate(${(d + 1) * 3}deg)`;
+        depthEl.style.zIndex = d;
+        depthEl.style.opacity = String(0.6 - d * 0.15);
+        pileEl.appendChild(depthEl);
+      }
+    }
+
+    // Render current play cards fanned on top
     showCards.forEach((card, i) => {
       const el = this.createCardEl(card, { pile: true });
       el.classList.add('pile-top');
 
       if (count === 1) {
-        // Single card: centered, slight tilt
         el.style.position = 'absolute';
         el.style.left = '50%';
         el.style.top = '50%';
-        el.style.transform = 'translate(-50%, -50%) rotate(-2deg) scale(1.05)';
+        el.style.transform = 'translate(-50%, -50%) rotate(-1deg) scale(1.05)';
         el.style.zIndex = 5;
       } else {
-        // Multiple cards: fan out side by side with slight rotation
-        const spreadPx = Math.min(40, 120 / count); // tighter spread for more cards
+        // Fan: spread cards horizontally with rotation
+        const spreadPx = count === 2 ? 36 : count === 3 ? 28 : 22;
         const totalSpread = spreadPx * (count - 1);
         const startX = -totalSpread / 2;
-        const rotStep = count <= 2 ? 6 : 4;
+        const rotStep = count <= 2 ? 7 : 5;
         const startRot = -((count - 1) * rotStep) / 2;
 
         el.style.position = 'absolute';
@@ -127,14 +145,14 @@ const UI = {
         el.style.top = '50%';
         el.style.marginLeft = `${startX + i * spreadPx}px`;
         el.style.transform = `translate(-50%, -50%) rotate(${startRot + i * rotStep}deg) scale(1.05)`;
-        el.style.zIndex = i + 1;
+        el.style.zIndex = 5 + i;
       }
 
       pileEl.appendChild(el);
     });
 
     if (currentPlay) {
-      const countLabel = count > 1 ? `${count}x ` : '';
+      const countLabel = count > 1 ? `${count}× ` : '';
       const rankName = currentPlay.cards[0]?.joker ? 'JOKER' : (currentPlay.cards[0]?.rank || '');
       if (pileInfo) {
         pileInfo.innerHTML = `<span class="pile-player">${currentPlay.playerName}</span> played <span class="pile-cards">${countLabel}${rankName}</span>`;
@@ -352,8 +370,8 @@ const UI = {
       const row = document.createElement('div');
       row.className = 'ranking-row';
       const pos = p.finishPosition || (i + 1);
-      const rankName = p.rank || 'commoner';
-      const pts = { tycoon: 30, rich: 20, commoner: 10, beggar: 0 }[rankName] || 0;
+      const rankName = p.rank || 'poor';
+      const pts = { tycoon: 30, rich: 20, poor: 10, commoner: 10, beggar: 0 }[rankName] || 0;
 
       row.innerHTML = `
         <div class="rank-pos">#${pos}</div>

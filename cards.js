@@ -163,51 +163,40 @@ function validatePlay(selectedCards, currentPlay, revolutionActive) {
 
   const count = selectedCards.length;
 
-  // All-8 stop: can play any number of 8s as stop
+  // All-8 stop: ends turn regardless
   const allEights = selectedCards.every(c => is8Stop(c));
   if (allEights) {
-    // Must have a value lower than the top card (8 clears the pile)
-    // Actually 8 Stop: ends turn regardless, no value check needed vs pile
-    // But you still can't play them if they are higher than required count
-    // Rule: 8 Stop ends the turn, player goes next. No value comparison needed.
     return { valid: true, isStop: true };
   }
 
-  // If pile is empty, anything goes (matching count doesn't matter)
+  // If pile is empty, anything goes
   if (!currentPlay) {
-    // Any valid set: singles, pairs, triples, quads
     if (count < 1 || count > 4) return { valid: false, reason: 'Play 1-4 cards.' };
-    // Must all be same rank (or joker wildcard)
     if (!isValidSet(selectedCards)) {
       return { valid: false, reason: 'Cards must be the same rank (Joker counts as any rank).' };
     }
-    return { valid: true, isRevolution: isRevolution(selectedCards) };
+    const rev = isRevolution(selectedCards);
+    return { valid: true, isRevolution: rev, isCounterRevolution: false };
   }
 
-  // Must match the count of the current play
+  // Must match count of current play
   if (count !== currentPlay.count) {
     return { valid: false, reason: `Must play exactly ${currentPlay.count} card(s).` };
   }
 
-  // Must be a valid set
   if (!isValidSet(selectedCards)) {
     return { valid: false, reason: 'Cards must be the same rank (Joker counts as any rank).' };
   }
 
-  // 3 of Spades special: only allowed as a SINGLE card against a single Joker play.
-  // In all other contexts it is treated as a normal 3 (weakest card).
+  // 3♠ special: only valid as single card against single Joker
   const has3Spades = selectedCards.some(c => !c.joker && c.suit === 'spades' && c.rank === '3');
   if (has3Spades) {
-    // 3♠ is only valid when played alone against a single Joker
-    if (count === 1 && currentPlay && currentPlay.count === 1 && currentPlay.topStrength === 1000) {
+    if (count === 1 && currentPlay.count === 1 && currentPlay.topStrength === 1000) {
       return { valid: true, is3Spades: true };
     }
-    // In a pair or any other scenario, 3♠ is treated as a normal 3 (value 0),
-    // so it will fail the strength check below — do NOT give it special treatment.
-    // Fall through to normal strength validation.
+    // Falls through to strength check as normal 3
   }
 
-  // Get play strength
   const playStrength = getPlayStrength(selectedCards, revolutionActive);
   const required = currentPlay.topStrength;
 
@@ -215,9 +204,16 @@ function validatePlay(selectedCards, currentPlay, revolutionActive) {
     return { valid: false, reason: 'Your cards must be stronger than the current pile.' };
   }
 
+  // Check if this is a revolution or counter-revolution
+  const isRev = isRevolution(selectedCards);
+  // Counter-revolution: a 4-of-a-kind played WHILE a revolution is already active
+  // It beats the current play AND toggles the revolution back off
+  const isCounterRev = isRev && revolutionActive;
+
   return {
     valid: true,
-    isRevolution: isRevolution(selectedCards),
+    isRevolution: isRev,
+    isCounterRevolution: isCounterRev,
     playStrength
   };
 }
@@ -311,7 +307,8 @@ function rankLabel(rank) {
   const labels = {
     'tycoon':   '👑 TYCOON',
     'rich':     '🎩 RICH',
-    'commoner': '⚔️ COMMONER',
+    'poor':     '⚔️ POOR',
+    'commoner': '⚔️ POOR', // legacy alias
     'beggar':   '💀 BEGGAR'
   };
   return labels[rank] || rank.toUpperCase();
@@ -321,7 +318,8 @@ function rankColor(rank) {
   const colors = {
     'tycoon':   '#ffd700',
     'rich':     '#c0c0c0',
-    'commoner': '#ffffff',
+    'poor':     '#aaaaaa',
+    'commoner': '#aaaaaa', // legacy alias
     'beggar':   '#cc3333'
   };
   return colors[rank] || '#fff';

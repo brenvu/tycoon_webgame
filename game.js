@@ -2,8 +2,8 @@
 // TYCOON — Core Game State Machine
 // ============================================================
 
-const RANKS_ORDER = ['tycoon', 'rich', 'commoner', 'beggar'];
-const POINTS = { tycoon: 30, rich: 20, commoner: 10, beggar: 0 };
+const RANKS_ORDER = ['tycoon', 'rich', 'poor', 'beggar'];
+const POINTS = { tycoon: 30, rich: 20, poor: 10, beggar: 0, commoner: 10 }; // commoner kept for compat
 
 const GamePhase = {
   LOBBY: 'lobby',
@@ -35,6 +35,7 @@ class TycoonGame {
     this.exchangesDone = new Set();
     this.exchangeNewHands = {}; // playerId -> newly dealt hand (choosing from this)
     this.exchangeBuffer = {};   // giverId -> cards they chose to give
+    this.bankruptTycoonId = null; // set when tycoon goes bankrupt, cleared after next startRound
     this.localPlayerIndex = -1;
     this.hostIndex = 0;
     this.onStateChange = null; // callback
@@ -52,7 +53,7 @@ class TycoonGame {
     if (this.players.length >= 4) return false;
     this.players.push({
       id, nickname, avatar,
-      rank: 'commoner',
+      rank: 'poor',
       score: 0,
       hand: [],
       finished: false,
@@ -83,12 +84,33 @@ class TycoonGame {
     this.players.forEach(p => {
       p.finished = false;
       p.finishPosition = null;
+      p.bankrupted = false;
     });
 
-    // First turn: player with 3♦
-    this.currentTurn = Cards.findStartingPlayer(this.players.map(p => p.hand));
-    this.phase = GamePhase.PLAYING;
+    // Bankrupt tycoon (became beggar from bankruptcy) is auto-finished — they sit out this round
+    // We track this via the bankruptTycoonId set during endRound
+    if (this.bankruptTycoonId) {
+      const bt = this.players.find(p => p.id === this.bankruptTycoonId);
+      if (bt) {
+        bt.finished = true;
+        bt.finishPosition = this.players.length; // last place
+        bt.bankrupted = true;
+        this.finishOrder.push(this.players.indexOf(bt));
+        this._log(`💀 ${bt.nickname} (bankrupted Tycoon) sits out this round!`);
+      }
+      this.bankruptTycoonId = null;
+    }
 
+    // First turn: player with 3♦ (skip bankrupt player)
+    this.currentTurn = Cards.findStartingPlayer(this.players.map(p => p.hand));
+    // Make sure starting player isn't the bankrupt one
+    let safety = 0;
+    while (this.players[this.currentTurn]?.finished && safety < this.players.length) {
+      this.currentTurn = (this.currentTurn + 1) % this.players.length;
+      safety++;
+    }
+
+    this.phase = GamePhase.PLAYING;
     this._log(`Round ${this.round} started! ${this.players[this.currentTurn].nickname} goes first (has 3♦)`);
     this._notify();
     this.startTurnTimer();
@@ -103,7 +125,7 @@ class TycoonGame {
     // Find ranks from PREVIOUS round
     const tycoon  = this.players.find(p => p.rank === 'tycoon');
     const rich     = this.players.find(p => p.rank === 'rich');
-    const commoner = this.players.find(p => p.rank === 'commoner');
+    const commoner = this.players.find(p => p.rank === 'poor');
     const beggar   = this.players.find(p => p.rank === 'beggar');
 
     this.exchangePending = [];
@@ -260,6 +282,7 @@ class TycoonGame {
       isStop: result.isStop || false,
       is3Spades: result.is3Spades || false,
       isRevolution: result.isRevolution || false,
+      isCounterRevolution: result.isCounterRevolution || false,
       allEights: selectedCards.every(c => Cards.is8Stop(c))
     };
     this.currentPlay = newPlay;
@@ -267,11 +290,18 @@ class TycoonGame {
     const names = selectedCards.map(c => Cards.cardDisplayName(c)).join(', ');
     this._log(`${player.nickname} played: ${names}`);
 
-    // Check Revolution
+    // Check Revolution / Counter-Revolution
     if (result.isRevolution) {
-      this.revolutionActive = !this.revolutionActive;
-      this._log(`⚡ REVOLUTION! Card values are ${this.revolutionActive ? 'REVERSED' : 'RESTORED'}!`);
-      // Re-sort all hands
+      if (result.isCounterRevolution) {
+        // Counter-revolution: cancels the active revolution, restores normal order
+        this.revolutionActive = false;
+        this._log(`🔄 COUNTER-REVOLUTION! ${player.nickname} undoes the revolution — values RESTORED!`);
+      } else {
+        // New revolution: flip values
+        this.revolutionActive = !this.revolutionActive;
+        this._log(`⚡ REVOLUTION! Card values are ${this.revolutionActive ? 'REVERSED' : 'RESTORED'}!`);
+      }
+      // Re-sort all hands with new ordering
       this.players.forEach(p => {
         p.hand = Cards.sortHand(p.hand, this.revolutionActive);
       });
@@ -393,28 +423,33 @@ class TycoonGame {
     this.stopTurnTimer();
     this.phase = GamePhase.ROUND_END;
 
-    // Assign ranks based on finish order
-    // 4 players: 1st=tycoon(30), 2nd=rich(20), 3rd=commoner(10), 4th=beggar(0)
-    const rankNames = ['tycoon', 'rich', 'commoner', 'beggar'];
-    // For < 4 players adapt
-    const rankAssignment = this.finishOrder.map((playerIdx, pos) => {
-      const rName = rankNames[pos] || 'beggar';
-      return { playerIdx, rank: rName };
-    });
+    // 4-player ranks: 1st=tycoon, 2nd=rich, 3rd=poor, 4th=beggar
+    const rankNames = ['tycoon', 'rich', 'poor', 'beggar'];
+    const rankAssignment = this.finishOrder.map((playerIdx, pos) => ({
+      playerIdx,
+      rank: rankNames[pos] ?? 'beggar'
+    }));
 
-    // Check tycoon bankruptcy rule
+    // Tycoon bankruptcy (round 2+): if prev tycoon didn't finish 1st, they become beggar
+    // and the last finisher is bumped from beggar to poor
     if (this.round > 1) {
       const tycoonPlayer = this.players.find(p => p.rank === 'tycoon');
       if (tycoonPlayer) {
         const tycoonIdx = this.players.indexOf(tycoonPlayer);
         const finishedFirst = this.finishOrder[0] === tycoonIdx;
         if (!finishedFirst) {
-          // Tycoon didn't maintain first place — bankruptcy!
-          this._log(`💀 BANKRUPTCY! ${tycoonPlayer.nickname} (Tycoon) failed to maintain 1st place!`);
-          // They become beggar regardless of finish position
-          const assignment = rankAssignment.find(r => r.playerIdx === tycoonIdx);
-          if (assignment) assignment.rank = 'beggar';
-          // The one who would have been beggar gets their original rank back
+          this._log(`💀 BANKRUPTCY! ${tycoonPlayer.nickname} (Tycoon) failed to defend — becomes Beggar!`);
+          const tycoonAssign = rankAssignment.find(r => r.playerIdx === tycoonIdx);
+          if (tycoonAssign) {
+            // Last finisher gets bumped to poor (not beggar) since bankrupt tycoon takes that slot
+            const lastAssign = rankAssignment[rankAssignment.length - 1];
+            if (lastAssign && lastAssign.playerIdx !== tycoonIdx) {
+              lastAssign.rank = 'poor';
+            }
+            tycoonAssign.rank = 'beggar';
+          }
+          // Mark this player to auto-finish next round
+          this.bankruptTycoonId = tycoonPlayer.id;
         }
       }
     }
@@ -428,27 +463,13 @@ class TycoonGame {
       this._log(`${player.nickname} → ${rank.toUpperCase()} (+${pts} pts)`);
     });
 
-    // Special: "poor" rank for 4th place in 4-player
-    // With 4 players: 1st=tycoon, 2nd=rich, 3rd=poor, 4th=beggar
-    // Wait — re-check original: 1st=Tycoon, 2nd=Rich, 3rd=Beggar, 4th=Poor
-    // Actually from the rules: 1st=Tycoon(30pts), 2nd=Rich(20pts), 3rd=Commoner(10pts), 4th=Beggar(0pts)
-    // But rank names in exchange: Tycoon, Rich, Poor, Beggar
-    // Let me re-map: rankNames = ['tycoon','rich','poor','beggar'] for exchange
-    // and point winners = ['tycoon','rich','commoner','beggar'] for scoring
-    // Per original request: "3rd is the Commoner gaining 10 points, Fourth is the Beggar gaining no points"
-    // But exchange mentions "Poor" and "Commoner"... let me use the game image as source
-    // Image shows: Tycoon, Rich, Poor, Beggar (4 ranks)
-    // So re-do: rankNames = ['tycoon','rich','poor','beggar']
-    // Points: tycoon=30, rich=20, poor=10(?), beggar=0
-    // Actually description says "3rd is Commoner gaining 10" so I'll keep commoner for 3rd place rank
-    // and the exchange involves: Tycoon/Rich give cards to Commoner/Beggar and vice versa
-
     this._notify();
 
-    if (this.round >= this.totalRounds) {
-      setTimeout(() => this.endGame(), 3000);
-    } else {
+    // Only increment round if not on final round (fix: was resetting after final round)
+    if (this.round < this.totalRounds) {
       this.round++;
+    } else {
+      setTimeout(() => this.endGame(), 3000);
     }
   }
 
