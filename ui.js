@@ -392,7 +392,7 @@ const UI = {
     if (title) title.textContent = 'CARD EXCHANGE';
     if (desc) {
       if (mustGiveBest) {
-        desc.textContent = `You must give your ${required} highest-value card${required > 1 ? 's' : ''} away.`;
+        desc.textContent = `You must give your ${required} highest-value card${required > 1 ? 's' : ''} away (pre-selected).`;
       } else {
         desc.textContent = `Choose ${required} card${required > 1 ? 's' : ''} to give away.`;
       }
@@ -401,21 +401,39 @@ const UI = {
     handEl.innerHTML = '';
     const sortedHand = Cards.sortHand(playerHand, revolutionActive);
 
+    // For mustGiveBest: top N are required (pre-selected, locked in)
     let autoSelected = null;
     if (mustGiveBest) {
-      // Auto-select the top N cards
       const topN = sortedHand.slice(-required);
       autoSelected = new Set(topN.map(c => c.id));
     }
 
     sortedHand.forEach(card => {
-      const isSelected = mustGiveBest ? autoSelected.has(card.id) : selectedIds.has(card.id);
-      const el = this.createCardEl(card, { selected: isSelected, playable: !mustGiveBest });
+      let isSelected, isPlayable;
+
+      if (mustGiveBest) {
+        // Required cards are pre-selected and visually raised; others are grayed out
+        isSelected = autoSelected.has(card.id);
+        isPlayable = isSelected; // Only the pre-selected ones are "available" looking
+      } else {
+        // Tycoon/Rich: all cards are clickable/available
+        isSelected = selectedIds.has(card.id);
+        isPlayable = true;
+      }
+
+      const el = this.createCardEl(card, { selected: isSelected, playable: isPlayable });
+
       if (isSelected) el.style.transform = 'translateY(-14px)';
+
       if (!mustGiveBest) {
+        // Tycoon/Rich can click any card
         el.style.cursor = 'pointer';
         el.addEventListener('click', () => onToggle(card));
+      } else {
+        // Beggar/Commoner: cards are locked, show cursor not-allowed on grayed cards
+        el.style.cursor = isSelected ? 'default' : 'not-allowed';
       }
+
       handEl.appendChild(el);
     });
 
