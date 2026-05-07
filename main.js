@@ -2,13 +2,8 @@
 // TYCOON — Main Application Controller
 // ============================================================
 
-// Avatar files available in the repo (populated dynamically)
-// For GitHub Pages these must be committed to /avatars/
-// We attempt to load a manifest, then fall back to known files
-
 const KNOWN_AVATARS = [
   'Ren Amamiya.png'
-  // Add more avatar image files to the /avatars/ folder
 ];
 
 class TycoonApp {
@@ -17,13 +12,12 @@ class TycoonApp {
     this.game = new TycoonGame();
     this.localId = null;
     this.localPlayerIndex = -1;
-    this.selectedCards = new Set(); // card IDs selected in hand
+    this.selectedCards = new Set();
     this.exchangeSelected = new Set();
     this.isHost = false;
     this.playerInfo = { nickname: 'Phantom', avatar: '' };
     this.pendingExchange = null;
 
-    // Wire game callbacks
     this.game.onStateChange = (state) => this.onGameStateChange(state);
     this.game.onActionLog = (msg) => UI.addLogEntry(msg);
 
@@ -63,23 +57,10 @@ class TycoonApp {
   }
 
   populateAvatars() {
-    // Try fetching avatars manifest first
     fetch('avatars/manifest.json')
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(list => UI.populateAvatarSelect(list))
-      .catch(() => {
-        // Fall back to known list
-        UI.populateAvatarSelect(KNOWN_AVATARS);
-        // Try to detect files by probing
-        this._probeAvatars();
-      });
-  }
-
-  async _probeAvatars() {
-    // Probe for common avatar filenames
-    const sel = document.getElementById('select-avatar');
-    if (!sel) return;
-    // Already populated with KNOWN_AVATARS, nothing more to do unless manifest exists
+      .catch(() => UI.populateAvatarSelect(KNOWN_AVATARS));
   }
 
   // ---- Lobby UI ----
@@ -94,12 +75,10 @@ class TycoonApp {
     document.getElementById('btn-play').addEventListener('click', () => this.submitPlay());
     document.getElementById('btn-pass').addEventListener('click', () => this.submitPass());
 
-    // Enter key for room code
     document.getElementById('input-room-code').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.joinGame();
     });
 
-    // Nickname update on blur
     document.getElementById('input-nickname').addEventListener('blur', () => this.saveProfile());
   }
 
@@ -115,6 +94,20 @@ class TycoonApp {
 
   // ---- Networking ----
 
+  _wireNet() {
+    this.net.onPlayerJoined = (player) => {
+      UI.showToast(player.nickname + ' joined!');
+      this.renderWaiting();
+    };
+    this.net.onPlayerLeft = () => {
+      UI.showToast('A player disconnected.');
+      this.renderWaiting();
+    };
+    this.net.onConnectionChange = () => this.renderWaiting();
+    this.net.onGameMessage = (msg, fromId) => this.handleGameMessage(msg, fromId);
+    this.net.onError = (msg) => this.showError(msg);
+  }
+
   async hostGame() {
     this.saveProfile();
     if (!this.playerInfo.nickname) { this.showError('Please enter a nickname.'); return; }
@@ -125,6 +118,7 @@ class TycoonApp {
 
     this.net = new TycoonNetwork();
     this.isHost = true;
+    this._wireNet();
 
     this.net.onRoomReady = (code) => {
       document.getElementById('display-room-code').textContent = code;
@@ -132,21 +126,6 @@ class TycoonApp {
       hostBtn.textContent = 'CREATE ROOM';
       hostBtn.disabled = false;
     };
-
-    this.net.onPlayerJoined = (player) => {
-      UI.showToast(`${player.nickname} joined!`);
-      this.renderWaiting();
-    };
-
-    this.net.onPlayerLeft = (id) => {
-      UI.showToast('A player disconnected.');
-      this.renderWaiting();
-    };
-
-    this.net.onConnectionChange = () => this.renderWaiting();
-
-    this.net.onGameAction = (action, fromId) => this.handleRemoteAction(action, fromId);
-
     this.net.onError = (msg) => {
       this.showError(msg);
       hostBtn.textContent = 'CREATE ROOM';
@@ -178,6 +157,7 @@ class TycoonApp {
 
     this.net = new TycoonNetwork();
     this.isHost = false;
+    this._wireNet();
 
     this.net.onJoinSuccess = () => {
       document.getElementById('display-room-code').textContent = raw;
@@ -186,20 +166,6 @@ class TycoonApp {
       joinBtn.disabled = false;
       this.renderWaiting();
     };
-
-    this.net.onPlayerJoined = (player) => {
-      UI.showToast(`${player.nickname} joined!`);
-      this.renderWaiting();
-    };
-
-    this.net.onPlayerLeft = (id) => {
-      UI.showToast('A player disconnected.');
-      this.renderWaiting();
-    };
-
-    this.net.onConnectionChange = () => this.renderWaiting();
-    this.net.onGameAction = (action, fromId) => this.handleRemoteAction(action, fromId);
-
     this.net.onError = (msg) => {
       this.showError(msg);
       joinBtn.textContent = 'JOIN ROOM';
@@ -227,9 +193,7 @@ class TycoonApp {
       const btn = document.getElementById('btn-copy-code');
       btn.textContent = '✓ Copied';
       setTimeout(() => { btn.textContent = '⧉ Copy'; }, 2000);
-    }).catch(() => {
-      UI.showToast(`Room code: ${code}`);
-    });
+    }).catch(() => UI.showToast('Room code: ' + code));
   }
 
   // ---- Game Start ----
@@ -239,19 +203,16 @@ class TycoonApp {
     const players = this.net.getPlayers();
     if (players.length < 2) { this.showError('Need at least 2 players to start.'); return; }
 
-    // Host sends start signal to all guests
-    this.net.broadcastAction({ type: 'game_start', players }, null);
+    // Tell guests to start
+    this.net.broadcastGameMessage({ type: 'game_start', players });
 
-    // Host initializes game locally
+    // Host initializes locally
     this._initGameLocally(players);
   }
 
   _initGameLocally(netPlayers) {
     this.game.reset();
-
-    netPlayers.forEach(p => {
-      this.game.addPlayer(p.id, p.nickname, p.avatar);
-    });
+    netPlayers.forEach(p => this.game.addPlayer(p.id, p.nickname, p.avatar));
 
     this.localPlayerIndex = this.game.players.findIndex(p => p.id === this.localId);
     this.game.localPlayerIndex = this.localPlayerIndex;
@@ -261,72 +222,67 @@ class TycoonApp {
     this.game.startRound();
 
     if (this.isHost) {
-      // Broadcast full state including all hands to respective players
       this._broadcastFullState();
     }
   }
 
   _broadcastFullState() {
     if (!this.isHost) return;
-    // Build per-player states
-    this.net.connections.forEach(conn => {
-      const guestId = conn.peer;
-      const guestIdx = this.game.players.findIndex(p => p.id === guestId);
-      if (guestIdx === -1) return;
+    this.net.broadcastPerPlayerState((guestPeerId) => {
+      const guestIdx = this.game.players.findIndex(p => p.id === guestPeerId);
+      if (guestIdx === -1) return null;
 
-      const state = {
-        type: 'full_state',
-        players: this.game.players.map((p, i) => ({
-          id: p.id, nickname: p.nickname, avatar: p.avatar,
-          rank: p.rank, score: p.score,
-          hand: i === guestIdx ? p.hand : [], // only send that player's hand
-          handCount: p.hand.length,
-          finished: p.finished, finishPosition: p.finishPosition
-        })),
-        round: this.game.round,
-        currentTurn: this.game.currentTurn,
-        currentPlay: this.game.currentPlay,
-        pile: this.game.pile,
-        revolutionActive: this.game.revolutionActive,
-        finishOrder: this.game.finishOrder,
-        turnTimer: this.game.turnTimer,
-        phase: this.game.phase,
-        localPlayerIndex: guestIdx,
-        exchangePending: this.game.exchangePending,
-        exchangesDone: [...this.game.exchangesDone]
+      return {
+        type: 'state_sync',
+        state: {
+          players: this.game.players.map((p, i) => ({
+            id: p.id, nickname: p.nickname, avatar: p.avatar,
+            rank: p.rank, score: p.score,
+            hand: i === guestIdx ? p.hand : [],
+            handCount: p.hand.length,
+            finished: p.finished, finishPosition: p.finishPosition
+          })),
+          round:           this.game.round,
+          currentTurn:     this.game.currentTurn,
+          currentPlay:     this.game.currentPlay,
+          pile:            this.game.pile,
+          revolutionActive: this.game.revolutionActive,
+          finishOrder:     this.game.finishOrder,
+          turnTimer:       this.game.turnTimer,
+          phase:           this.game.phase,
+          localPlayerIndex: guestIdx,
+          exchangePending: this.game.exchangePending,
+          exchangesDone:   [...this.game.exchangesDone]
+        }
       };
-      conn.send({ type: 'state_sync', state });
     });
   }
 
-  // ---- Remote Action Handling ----
+  // ---- Game Message Handling ----
 
-  handleRemoteAction(action, fromId) {
-    if (!action) return;
+  handleGameMessage(msg, fromId) {
+    if (!msg || !msg.type) return;
 
-    switch (action.type) {
+    switch (msg.type) {
+
       case 'game_start':
-        // Guest receives start signal
         if (!this.isHost) {
-          this._initGameLocally(action.players);
+          this._initGameLocally(msg.players);
         }
         break;
 
       case 'state_sync':
-      case 'full_state':
-        // Guest receives state from host
         if (!this.isHost) {
-          this._applyRemoteState(action.state || action);
+          this._applyRemoteState(msg.state);
         }
         break;
 
       case 'play_cards':
         if (this.isHost) {
-          const result = this.game.playCards(fromId, action.cards);
+          const result = this.game.playCards(fromId, msg.cards);
           if (!result.ok) {
-            // Send error back
             const conn = this.net.connections.find(c => c.peer === fromId);
-            if (conn) conn.send({ type: 'action', action: { type: 'play_error', reason: result.reason } });
+            if (conn) conn.send({ type: 'play_error', reason: result.reason });
           } else {
             this._broadcastFullState();
           }
@@ -342,13 +298,9 @@ class TycoonApp {
 
       case 'exchange_submit':
         if (this.isHost) {
-          this.game.submitExchange(fromId, action.cards);
+          this.game.submitExchange(fromId, msg.cards);
           this._broadcastFullState();
         }
-        break;
-
-      case 'play_error':
-        UI.showToast(`Invalid play: ${action.reason}`, 3000);
         break;
 
       case 'next_round':
@@ -357,57 +309,56 @@ class TycoonApp {
           this._broadcastFullState();
         }
         break;
+
+      case 'play_error':
+        UI.showToast('Invalid play: ' + msg.reason, 3000);
+        break;
     }
   }
 
   _applyRemoteState(state) {
     if (!state) return;
 
-    // Update local game state from host
     const g = this.game;
-    g.round = state.round;
-    g.currentTurn = state.currentTurn;
-    g.currentPlay = state.currentPlay;
-    g.pile = state.pile || [];
+    g.round            = state.round;
+    g.currentTurn      = state.currentTurn;
+    g.currentPlay      = state.currentPlay;
+    g.pile             = state.pile || [];
     g.revolutionActive = state.revolutionActive;
-    g.finishOrder = state.finishOrder || [];
-    g.turnTimer = state.turnTimer;
-    g.phase = state.phase;
-    g.exchangePending = state.exchangePending || [];
-    g.exchangesDone = new Set(state.exchangesDone || []);
+    g.finishOrder      = state.finishOrder || [];
+    g.turnTimer        = state.turnTimer;
+    g.phase            = state.phase;
+    g.exchangePending  = state.exchangePending || [];
+    g.exchangesDone    = new Set(state.exchangesDone || []);
 
     if (state.localPlayerIndex !== undefined) {
       this.localPlayerIndex = state.localPlayerIndex;
-      g.localPlayerIndex = state.localPlayerIndex;
+      g.localPlayerIndex    = state.localPlayerIndex;
     }
 
-    // Update players
     if (state.players) {
       state.players.forEach((sp, i) => {
         if (!g.players[i]) g.players[i] = {};
-        const lp = g.players[i];
-        lp.id = sp.id;
-        lp.nickname = sp.nickname;
-        lp.avatar = sp.avatar;
-        lp.rank = sp.rank;
-        lp.score = sp.score;
-        lp.finished = sp.finished;
+        const lp      = g.players[i];
+        lp.id         = sp.id;
+        lp.nickname   = sp.nickname;
+        lp.avatar     = sp.avatar;
+        lp.rank       = sp.rank;
+        lp.score      = sp.score;
+        lp.finished   = sp.finished;
         lp.finishPosition = sp.finishPosition;
-        lp.handCount = sp.handCount !== undefined ? sp.handCount : (sp.hand ? sp.hand.length : lp.handCount);
+        lp.handCount  = sp.handCount !== undefined ? sp.handCount : (sp.hand ? sp.hand.length : lp.handCount);
         if (sp.hand && sp.hand.length > 0) {
           lp.hand = sp.hand;
         } else if (sp.handCount !== undefined && lp.hand) {
-          // Keep local hand if counts match
           if (lp.hand.length !== sp.handCount) lp.hand = [];
         }
       });
       while (g.players.length > state.players.length) g.players.pop();
     }
 
-    // Trigger UI update
     this.renderGameState();
 
-    // Handle screen transitions
     if (state.phase === 'exchange') {
       UI.showScreen('exchange');
       this.renderExchangeScreen();
@@ -422,11 +373,10 @@ class TycoonApp {
     }
   }
 
-  // ---- Game State Changes ----
+  // ---- Game State Changes (host-local) ----
 
   onGameStateChange(state) {
     this.renderGameState();
-
     const phase = state.phase;
 
     if (phase === 'exchange') {
@@ -453,62 +403,41 @@ class TycoonApp {
     const localPlayer = g.players[this.localPlayerIndex];
     const hand = g.getLocalHand();
 
-    // Update round display
     const rdEl = document.getElementById('display-round');
     if (rdEl) rdEl.textContent = g.round;
 
-    // Scores
     UI.renderScoresMini(state.players);
-
-    // Local player info
     UI.renderLocalPlayer(localPlayer, g.revolutionActive);
-
-    // Opponents
     UI.renderOpponents(state.players, this.localPlayerIndex, g.currentTurn, g.revolutionActive);
-
-    // Pile
     UI.renderPile(g.pile, g.currentPlay);
-
-    // Revolution
     UI.renderRevolution(g.revolutionActive);
-
-    // Timer
     UI.renderTimer(g.turnTimer);
 
-    // Determine playable cards
     const isMyTurn = g.isPlayerTurn(this.localId);
-    let playableIds = null;
-    if (isMyTurn) {
-      playableIds = Cards.getPlayableCards(hand, g.currentPlay, g.revolutionActive);
-    }
+    const playableIds = isMyTurn
+      ? Cards.getPlayableCards(hand, g.currentPlay, g.revolutionActive)
+      : null;
 
-    // Render hand
     UI.renderHand(hand, this.selectedCards, playableIds, (card) => this.toggleCard(card), g.revolutionActive);
 
-    // Action buttons
     const playBtn = document.getElementById('btn-play');
     const passBtn = document.getElementById('btn-pass');
     const selInfo = document.getElementById('selected-info');
 
     if (playBtn) playBtn.disabled = !isMyTurn || this.selectedCards.size === 0;
-    if (passBtn) passBtn.disabled = !isMyTurn || !g.currentPlay; // can't pass on empty pile (must play)
-
-    // Actually: you CAN pass even on your own open -- only restriction is no passing to start
-    if (passBtn && isMyTurn) passBtn.disabled = false;
-    if (passBtn && !isMyTurn) passBtn.disabled = true;
+    if (passBtn) passBtn.disabled = !isMyTurn;
 
     if (selInfo) {
       if (!isMyTurn) {
         const curr = g.players[g.currentTurn];
-        selInfo.textContent = curr ? `Waiting for ${curr.nickname}...` : 'Waiting...';
+        selInfo.textContent = curr ? 'Waiting for ' + curr.nickname + '...' : 'Waiting...';
       } else if (this.selectedCards.size > 0) {
-        selInfo.textContent = `${this.selectedCards.size} card(s) selected`;
+        selInfo.textContent = this.selectedCards.size + ' card(s) selected';
       } else {
         selInfo.textContent = 'Your turn — select cards to play';
       }
     }
 
-    // Highlight current turn player name
     document.querySelectorAll('.opponent-panel').forEach(el => el.classList.remove('active-turn'));
   }
 
@@ -526,7 +455,6 @@ class TycoonApp {
     } else {
       this.selectedCards.add(card.id);
     }
-
     this.renderGameState();
   }
 
@@ -534,38 +462,20 @@ class TycoonApp {
 
   submitPlay() {
     if (this.selectedCards.size === 0) return;
-    const hand = this.game.getLocalHand();
+    const hand  = this.game.getLocalHand();
     const cards = [...this.selectedCards].map(id => hand.find(c => c.id === id)).filter(Boolean);
 
-    if (this.isHost) {
-      const result = this.game.playCards(this.localId, cards);
-      if (!result.ok) {
-        UI.showToast(result.reason, 3000);
-        return;
-      }
-    } else {
-      this.net.sendAction({ type: 'play_cards', cards });
-      // Optimistic: remove from local display (will be confirmed by host state)
-    }
-
+    this.net.sendToHost({ type: 'play_cards', cards });
     this.selectedCards.clear();
     this.renderGameState();
   }
 
   submitPass() {
-    if (this.isHost) {
-      this.game.pass(this.localId);
-    } else {
-      this.net.sendAction({ type: 'pass_turn' });
-    }
+    this.net.sendToHost({ type: 'pass_turn' });
   }
 
   nextRound() {
-    if (this.isHost) {
-      this.game.setupExchange();
-    } else {
-      this.net.sendAction({ type: 'next_round' });
-    }
+    this.net.sendToHost({ type: 'next_round' });
   }
 
   // ---- Exchange ----
@@ -575,7 +485,6 @@ class TycoonApp {
     const exchangeInfo = g.getExchangeInfo();
 
     if (!exchangeInfo) {
-      // No exchange needed for this player, wait
       document.getElementById('exchange-title').textContent = 'WAITING...';
       document.getElementById('exchange-desc').textContent = 'Waiting for other players to exchange cards...';
       document.getElementById('exchange-hand').innerHTML = '';
@@ -584,7 +493,6 @@ class TycoonApp {
     }
 
     this.pendingExchange = exchangeInfo;
-
     UI.renderExchange(
       exchangeInfo,
       g.getLocalHand(),
@@ -606,18 +514,12 @@ class TycoonApp {
 
   submitExchange(cards) {
     this.exchangeSelected.clear();
-    if (this.isHost) {
-      this.game.submitExchange(this.localId, cards);
-    } else {
-      this.net.sendAction({ type: 'exchange_submit', cards });
-    }
+    this.net.sendToHost({ type: 'exchange_submit', cards });
   }
 }
 
 // ---- Boot ----
 window.addEventListener('DOMContentLoaded', () => {
-  // PeerJS is loaded synchronously in <head> of index.html
-  // Verify it loaded correctly
   if (typeof Peer === 'undefined') {
     document.body.innerHTML = '<div style="color:red;font-size:2em;padding:2em">ERROR: PeerJS failed to load. Check your internet connection and reload.</div>';
     return;
