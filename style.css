@@ -647,12 +647,13 @@ select option { background: #1a1a1f; }
   min-height: 0;
   gap: 8px;
   padding: 8px;
+  position: relative; /* for exchange-banner overlay */
 }
 
 .card-pile {
   position: relative;
-  width: 280px;
-  height: 160px;
+  width: 320px;
+  height: 180px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -832,20 +833,21 @@ select option { background: #1a1a1f; }
   will-change: transform;
 }
 
-/* Invisible hover-zone below card — prevents mouseout when card lifts into cursor */
+/* Invisible hover-zone below card — bridges the gap when card lifts */
 .hand-cards .card-el::after {
   content: '';
   position: absolute;
-  bottom: -16px;
-  left: -4px;
-  right: -4px;
-  height: 20px;
+  bottom: -20px;
+  left: 0;
+  right: 0;
+  height: 24px;
   pointer-events: auto;
 }
 
 .card-el:first-child { margin-left: 0; }
 
-.hand-cards .card-el:hover:not(.unplayable):not(.selected) {
+/* Use JS-added class for hover so we control when it's removed */
+.hand-cards .card-el.card-hovered:not(.unplayable):not(.selected) {
   transform: translateY(-12px);
   z-index: 10;
   box-shadow: 0 10px 24px rgba(0,0,0,0.7);
@@ -912,36 +914,106 @@ select option { background: #1a1a1f; }
 }
 
 /* Exchange banner — inline on game screen */
+/* Exchange banner — absolute overlay centered in play-area */
 .exchange-banner {
-  background: linear-gradient(135deg, rgba(232,0,28,0.15) 0%, rgba(10,10,10,0.95) 60%);
-  border: 1px solid var(--p5-red);
-  border-left: 4px solid var(--p5-red);
-  padding: 10px 16px;
-  margin-bottom: 6px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 20;
+  background: rgba(8, 4, 12, 0.97);
+  border: 2px solid var(--p5-red);
+  border-top: 4px solid var(--p5-red);
+  padding: 18px 28px;
+  min-width: 320px;
+  max-width: min(520px, 90vw);
+  text-align: center;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  box-shadow: 0 0 40px rgba(232,0,28,0.3);
 }
 
 .exchange-banner-title {
   font-family: var(--font-display);
-  font-size: 14px;
-  letter-spacing: 4px;
+  font-size: 16px;
+  letter-spacing: 5px;
   color: var(--p5-gold);
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .exchange-banner-desc {
   font-size: 11px;
   color: #ccc;
   letter-spacing: 1px;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
-/* Cards locked for giving away (Beggar/Commoner's top N) */
+/* Cards locked for giving away (Beggar/Poor's top N) */
 .card-el.exchange-locked {
   border-color: var(--p5-red) !important;
   box-shadow: 0 0 12px rgba(232,0,28,0.6) !important;
   transform: translateY(-10px);
   z-index: 5;
 }
+
+/* ============================================================
+   EVENT FEED (left-side Pokémon Showdown style)
+   ============================================================ */
+
+.event-feed {
+  position: fixed;
+  left: 0;
+  top: 50px; /* below topbar */
+  bottom: 0;
+  width: 240px;
+  padding: 8px 0;
+  display: flex;
+  flex-direction: column-reverse; /* newest at bottom */
+  gap: 2px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.feed-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 5px 10px 5px 8px;
+  margin: 0 4px;
+  border-left: 3px solid transparent;
+  background: rgba(8, 4, 12, 0.88);
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  line-height: 1.4;
+  color: rgba(255,255,255,0.75);
+  animation: feedSlideIn 0.25s ease;
+  flex-shrink: 0;
+}
+
+@keyframes feedSlideIn {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.feed-entry .feed-icon {
+  font-size: 13px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.feed-entry .feed-text { flex: 1; word-break: break-word; white-space: normal; }
+.feed-entry .feed-text strong { font-weight: 700; }
+
+/* Entry type colors */
+.feed-entry.feed-play   { border-color: rgba(255,255,255,0.2); }
+.feed-entry.feed-pass   { border-color: rgba(100,100,120,0.5); color: rgba(255,255,255,0.45); }
+.feed-entry.feed-special { border-color: #f5a623; background: rgba(40,20,0,0.92); color: #f5c842; }
+.feed-entry.feed-revolution { border-color: #c03fff; background: rgba(30,0,50,0.95); color: #e07fff; }
+.feed-entry.feed-finish { border-color: #ffd700; background: rgba(30,25,0,0.92); color: #ffd700; }
+.feed-entry.feed-system { border-color: rgba(232,0,28,0.6); color: rgba(255,255,255,0.5); font-style: italic; }
+
+/* Keep action-log for compat but hide it */
+.action-log { display: none; }
 
 /* Confirm exchange button */
 .btn-confirm-exchange {

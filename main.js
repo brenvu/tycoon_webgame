@@ -17,6 +17,8 @@ class TycoonApp {
     this.pendingExchange = null;
     this._timerTick = null;
     this._lastKnownTimer = 90;
+    this._receivedModalShown = false;
+    this._exchangeSubmitted = false;
 
     this.game.onStateChange = (state) => this.onGameStateChange(state);
     this.game.onActionLog = (msg) => UI.addLogEntry(msg);
@@ -508,22 +510,24 @@ class TycoonApp {
     if (confirmBtn) confirmBtn.classList.add('hidden');
     if (playBtn) playBtn.classList.remove('hidden');
     if (passBtn) passBtn.classList.remove('hidden');
+    this._exchangeSubmitted = false; // reset for next round
   }
 
   _showReceivedCardsToast() {
     if (this.game.round <= 1) return;
+    // Guard: only show once per exchange — cleared when modal is dismissed
+    if (this._receivedModalShown) return;
     const hand = this.game.getLocalHand() || [];
     const newCards = hand.filter(c => c.isNew);
     if (newCards.length === 0) return;
 
-    // Show modal instead of toast
+    this._receivedModalShown = true;
+
     const modal = document.getElementById('modal-received');
     const cardsContainer = document.getElementById('modal-received-cards');
     const okBtn = document.getElementById('btn-modal-received-ok');
-
     if (!modal || !cardsContainer) return;
 
-    // Render the received cards
     cardsContainer.innerHTML = '';
     newCards.forEach(card => {
       const el = UI.createCardEl(card, { playable: true });
@@ -535,8 +539,8 @@ class TycoonApp {
 
     const dismiss = () => {
       modal.classList.add('hidden');
-      // Clear isNew flags
       hand.forEach(c => { delete c.isNew; });
+      this._receivedModalShown = false;
       okBtn.removeEventListener('click', dismiss);
     };
     okBtn.addEventListener('click', dismiss);
@@ -582,21 +586,31 @@ class TycoonApp {
     const localPlayer = g.players[this.localPlayerIndex];
     const rankLabel = localPlayer?.rank ? localPlayer.rank.toUpperCase() : '';
 
-    if (!exchangeInfo) {
-      // Beggar or Commoner — auto-submitted, waiting for Tycoon/Rich to choose
+    // Check if this player already submitted (Tycoon/Rich who confirmed)
+    const alreadySubmittedAsChooser = this._exchangeSubmitted;
+
+    if (!exchangeInfo || alreadySubmittedAsChooser) {
       if (bannerTitle) bannerTitle.textContent = '⚔ CARD EXCHANGE — ' + rankLabel;
-      // Find what cards they're giving away (their top N from new hand)
       const myPending = g.exchangePending.find(e => e.giverId === localId);
-      if (myPending && bannerDesc) {
-        const newHandSorted = [...newHand].sort((a,b) => Cards.cardStrength(a,false) - Cards.cardStrength(b,false));
-        const giving = newHandSorted.slice(-myPending.count);
-        const givingNames = giving.map(c => Cards.cardDisplayName(c)).join(' & ');
-        bannerDesc.textContent = `Your ${myPending.count} highest card${myPending.count > 1 ? 's' : ''} (${givingNames}) will be given away. Waiting for others to select...`;
+
+      if (alreadySubmittedAsChooser) {
+        // Tycoon/Rich confirmed — waiting for others
+        if (bannerDesc) bannerDesc.textContent = 'Cards submitted. Waiting for all players to complete their exchange...';
+        if (confirmBtn) confirmBtn.classList.add('hidden');
+        if (selInfo) selInfo.textContent = 'Waiting for other players...';
+        this._renderExchangeHand(newHand, new Set(), 0, false);
+      } else {
+        // Beggar/Poor — auto-submitted, show what they're giving away
+        if (myPending && bannerDesc) {
+          const newHandSorted = [...newHand].sort((a,b) => Cards.cardStrength(a,false) - Cards.cardStrength(b,false));
+          const giving = newHandSorted.slice(-myPending.count);
+          const givingNames = giving.map(c => Cards.cardDisplayName(c)).join(' & ');
+          bannerDesc.textContent = `Your ${myPending.count} highest card${myPending.count > 1 ? 's' : ''} (${givingNames}) will be given away. Waiting for others to select...`;
+        }
+        if (confirmBtn) confirmBtn.classList.add('hidden');
+        if (selInfo) selInfo.textContent = 'Waiting for other players...';
+        this._renderExchangeHand(newHand, null, myPending?.count || 0, false);
       }
-      if (confirmBtn) confirmBtn.classList.add('hidden');
-      if (selInfo) selInfo.textContent = 'Waiting for other players...';
-      // Show new hand with top N highlighted as "locked" and rest dimmed
-      this._renderExchangeHand(newHand, null, myPending?.count || 0, false);
       return;
     }
 
@@ -671,7 +685,10 @@ class TycoonApp {
     const exchangeInfo = g.getExchangeInfo();
     if (!exchangeInfo || cards.length !== exchangeInfo.count) return;
     this.exchangeSelected.clear();
+    this._exchangeSubmitted = true; // flag: waiting for others after we submit
     this.net.sendToHost({ type: 'exchange_submit', cards });
+    // Re-render to show waiting state immediately
+    this.renderExchangeOnGameScreen();
   }
 
   // Legacy — kept for compat but no longer used

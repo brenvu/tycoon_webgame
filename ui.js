@@ -57,28 +57,32 @@ const UI = {
       const isSelected = selectedIds.has(card.id);
       const isPlayable = playableIds ? playableIds.has(card.id) : true;
 
-      const cardEl = this.createCardEl(card, {
-        selected: isSelected,
-        playable: isPlayable
+      const cardEl = this.createCardEl(card, { selected: isSelected, playable: isPlayable });
+
+      // Stable JS hover — 80ms leave delay prevents bounce when card lifts into cursor
+      let leaveTimer = null;
+      cardEl.addEventListener('mouseenter', () => {
+        if (leaveTimer) { clearTimeout(leaveTimer); leaveTimer = null; }
+        cardEl.classList.add('card-hovered');
+      });
+      cardEl.addEventListener('mouseleave', () => {
+        leaveTimer = setTimeout(() => {
+          cardEl.classList.remove('card-hovered');
+          leaveTimer = null;
+        }, 80);
       });
 
       if (isPlayable) {
         cardEl.style.cursor = 'pointer';
         cardEl.addEventListener('click', () => onToggle(card));
-        cardEl.addEventListener('touchend', (e) => {
-          e.preventDefault();
-          onToggle(card);
-        });
-      }
-
-      if (isSelected) {
-        cardEl.style.transform = 'translateY(-18px)';
+        cardEl.addEventListener('touchend', (e) => { e.preventDefault(); onToggle(card); });
       }
 
       container.appendChild(cardEl);
     });
 
-    document.getElementById('local-cards-count').textContent = hand.length;
+    const countEl = document.getElementById('local-cards-count');
+    if (countEl) countEl.textContent = hand.length;
   },
 
   // ---- Pile Rendering ----
@@ -102,21 +106,22 @@ const UI = {
     const showCards = currentPlay ? currentPlay.cards : pile.slice(-1);
     const count = showCards.length;
 
-    // Show depth: if there are prior plays, render 1-2 face-down cards behind the current play
+    // Depth illusion: show up to 3 face-down cards behind the current play
     const priorCardsInPile = pile.length - showCards.length;
     if (priorCardsInPile > 0) {
-      const depthCount = Math.min(2, priorCardsInPile);
-      for (let d = 0; d < depthCount; d++) {
+      const depthCount = Math.min(3, Math.ceil(priorCardsInPile / 2));
+      for (let d = depthCount - 1; d >= 0; d--) {
         const depthEl = this.createCardEl(null, { faceDown: true, pile: true });
         depthEl.style.position = 'absolute';
         depthEl.style.left = '50%';
         depthEl.style.top = '50%';
-        // Offset each depth card slightly behind and to the side
-        const offsetX = (d + 1) * 6;
-        const offsetY = (d + 1) * -5;
-        depthEl.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px)) rotate(${(d + 1) * 3}deg)`;
+        const offsetX = (d + 1) * 9;
+        const offsetY = (d + 1) * -7;
+        const rot = (d % 2 === 0 ? 1 : -1) * (d + 1) * 5;
+        depthEl.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px)) rotate(${rot}deg)`;
         depthEl.style.zIndex = d;
-        depthEl.style.opacity = String(0.6 - d * 0.15);
+        depthEl.style.opacity = String(0.75 - d * 0.12);
+        depthEl.style.borderColor = 'rgba(255,255,255,0.25)';
         pileEl.appendChild(depthEl);
       }
     }
@@ -304,14 +309,39 @@ const UI = {
   // ---- Action Log ----
 
   addLogEntry(msg) {
-    const log = document.getElementById('action-log');
-    if (!log) return;
+    const feed = document.getElementById('event-feed');
+    if (!feed) return;
+
+    // Classify message for styling
+    let type = 'feed-play';
+    let icon = '▶';
+
+    if (/passed/i.test(msg))                        { type = 'feed-pass';       icon = '⏭'; }
+    else if (/REVOLUTION/i.test(msg))               { type = 'feed-revolution'; icon = '⚡'; }
+    else if (/COUNTER.REVOLUTION/i.test(msg))       { type = 'feed-revolution'; icon = '🔄'; }
+    else if (/8 STOP/i.test(msg))                   { type = 'feed-special';    icon = '🛑'; }
+    else if (/3.*SPADE|SPADE REVERSAL/i.test(msg))  { type = 'feed-special';    icon = '♠'; }
+    else if (/finished|🏆/i.test(msg))              { type = 'feed-finish';     icon = '🏆'; }
+    else if (/BANKRUPTCY|bankrupted/i.test(msg))    { type = 'feed-finish';     icon = '💀'; }
+    else if (/All others passed|chain ends/i.test(msg)) { type = 'feed-special'; icon = '🔁'; }
+    else if (/Round.*started|GAME OVER|→/i.test(msg)) { type = 'feed-system';  icon = '📋'; }
+    else if (/exchange|gave|chose/i.test(msg))      { type = 'feed-system';    icon = '🔃'; }
+    else if (/played:/i.test(msg))                  { type = 'feed-play';       icon = '▶'; }
+
     const entry = document.createElement('div');
-    entry.className = 'log-entry';
-    entry.textContent = msg;
-    log.insertBefore(entry, log.firstChild);
-    // Keep max 20 entries
-    while (log.children.length > 20) log.removeChild(log.lastChild);
+    entry.className = 'feed-entry ' + type;
+
+    // Format: bold the player name (text before first space-colon or first word if special)
+    let html = msg;
+    // Bold player name before 'played:' or 'passed.'
+    html = html.replace(/^(.+?)\s+(played:|passed\.)/, (_, name, rest) =>
+      `<strong>${name}</strong> ${rest}`);
+
+    entry.innerHTML = `<span class="feed-icon">${icon}</span><span class="feed-text">${html}</span>`;
+    feed.insertBefore(entry, feed.firstChild);
+
+    // Cap at 30 entries
+    while (feed.children.length > 30) feed.removeChild(feed.lastChild);
   },
 
   // ---- Waiting Room ----

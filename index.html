@@ -103,8 +103,12 @@
     <!-- Opponents area (top 3 players) -->
     <div class="opponents-area" id="opponents-area"></div>
 
-    <!-- Center play area -->
-    <div class="play-area">
+    <!-- Center play area with exchange banner overlay -->
+    <div class="play-area" id="play-area">
+      <div id="exchange-banner" class="exchange-banner hidden">
+        <div class="exchange-banner-title" id="exchange-banner-title">CARD EXCHANGE</div>
+        <div class="exchange-banner-desc" id="exchange-banner-desc"></div>
+      </div>
       <div class="card-pile" id="card-pile">
         <div class="pile-empty-msg" id="pile-empty">Play starts here</div>
       </div>
@@ -117,8 +121,8 @@
       <div class="timer-text" id="timer-text">90</div>
     </div>
 
-    <!-- Action log -->
-    <div class="action-log" id="action-log"></div>
+    <!-- Event feed (left side) -->
+    <div class="event-feed" id="event-feed"></div>
 
     <!-- Local player area -->
     <div class="local-player-area">
@@ -135,11 +139,6 @@
       </div>
 
       <div class="hand-area">
-        <!-- Exchange banner shown during exchange phase -->
-        <div id="exchange-banner" class="exchange-banner hidden">
-          <div class="exchange-banner-title" id="exchange-banner-title">CARD EXCHANGE</div>
-          <div class="exchange-banner-desc" id="exchange-banner-desc"></div>
-        </div>
         <div class="hand-cards" id="hand-cards"></div>
       </div>
 
