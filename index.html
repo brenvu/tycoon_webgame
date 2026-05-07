@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TYCOON — Persona 5 Card Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;600;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- LOBBY SCREEN -->
+<div id="screen-lobby" class="screen active">
+  <div class="lobby-bg"></div>
+  <div class="lobby-content">
+    <div class="game-logo">
+      <div class="logo-main">TYCOON</div>
+      <div class="logo-sub">PERSONA 5 ROYAL</div>
+    </div>
+
+    <div class="lobby-panel">
+      <!-- Profile Setup -->
+      <div class="profile-setup">
+        <h2 class="panel-title">YOUR PROFILE</h2>
+        <div class="input-group">
+          <label>NICKNAME</label>
+          <input type="text" id="input-nickname" maxlength="16" placeholder="Enter nickname..." value="Phantom">
+        </div>
+        <div class="input-group">
+          <label>AVATAR</label>
+          <div class="avatar-select-wrapper">
+            <div class="avatar-preview-box">
+              <img id="avatar-preview-img" src="" alt="">
+              <span id="avatar-preview-none">?</span>
+            </div>
+            <select id="select-avatar">
+              <option value="">— Select Avatar —</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="lobby-divider"></div>
+
+      <!-- Host or Join -->
+      <div class="lobby-actions">
+        <div class="action-col">
+          <h3>HOST A GAME</h3>
+          <button class="btn-primary" id="btn-host">CREATE ROOM</button>
+        </div>
+        <div class="action-or">OR</div>
+        <div class="action-col">
+          <h3>JOIN A GAME</h3>
+          <input type="text" id="input-room-code" maxlength="6" placeholder="ROOM CODE" class="code-input">
+          <button class="btn-secondary" id="btn-join">JOIN ROOM</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Waiting Room -->
+    <div id="waiting-room" class="waiting-room hidden">
+      <div class="room-code-display">
+        <span class="rc-label">ROOM CODE</span>
+        <span class="rc-code" id="display-room-code">------</span>
+        <button class="btn-copy" id="btn-copy-code" title="Copy code">⧉</button>
+      </div>
+      <div class="waiting-players" id="waiting-players-list"></div>
+      <div class="waiting-status" id="waiting-status">Waiting for players... (2-4 players needed)</div>
+      <button class="btn-primary" id="btn-start-game" style="display:none">START GAME</button>
+    </div>
+
+    <div id="lobby-error" class="lobby-error hidden"></div>
+  </div>
+</div>
+
+<!-- CARD EXCHANGE SCREEN (between rounds) -->
+<div id="screen-exchange" class="screen hidden">
+  <div class="exchange-overlay">
+    <div class="exchange-panel">
+      <h2 id="exchange-title">CARD EXCHANGE</h2>
+      <p id="exchange-desc"></p>
+      <div id="exchange-hand" class="exchange-hand"></div>
+      <div id="exchange-selected-info" class="exchange-selected-info"></div>
+      <button class="btn-primary" id="btn-confirm-exchange" disabled>CONFIRM</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="screen-game" class="screen hidden">
+  <div class="game-layout">
+
+    <!-- Top bar -->
+    <div class="game-topbar">
+      <div class="topbar-left">
+        <span class="round-label">ROUND</span>
+        <span class="round-num" id="display-round">1</span>
+        <span class="round-of">/ 3</span>
+      </div>
+      <div class="topbar-center">
+        <div id="revolution-banner" class="revolution-banner hidden">⚡ REVOLUTION ACTIVE ⚡</div>
+      </div>
+      <div class="topbar-right">
+        <div class="scores-mini" id="scores-mini"></div>
+      </div>
+    </div>
+
+    <!-- Opponents area (top 3 players) -->
+    <div class="opponents-area" id="opponents-area"></div>
+
+    <!-- Center play area -->
+    <div class="play-area">
+      <div class="card-pile" id="card-pile">
+        <div class="pile-empty-msg" id="pile-empty">Play starts here</div>
+      </div>
+      <div class="pile-info" id="pile-info"></div>
+    </div>
+
+    <!-- Turn timer -->
+    <div class="timer-bar-wrap">
+      <div class="timer-bar" id="timer-bar"></div>
+      <div class="timer-text" id="timer-text">90</div>
+    </div>
+
+    <!-- Action log -->
+    <div class="action-log" id="action-log"></div>
+
+    <!-- Local player area -->
+    <div class="local-player-area">
+      <div class="local-player-info">
+        <div class="local-avatar-wrap">
+          <img class="local-avatar-img" id="local-avatar-img" src="" alt="">
+          <div class="local-avatar-placeholder" id="local-avatar-ph">?</div>
+        </div>
+        <div class="local-player-details">
+          <div class="local-nickname" id="local-nickname">Player</div>
+          <div class="local-rank-badge" id="local-rank-badge">COMMONER</div>
+          <div class="local-cards-left">Cards: <span id="local-cards-count">0</span></div>
+        </div>
+      </div>
+
+      <div class="hand-area">
+        <div class="hand-cards" id="hand-cards"></div>
+      </div>
+
+      <div class="action-buttons">
+        <button class="btn-action btn-play" id="btn-play" disabled>PLAY CARDS</button>
+        <button class="btn-action btn-pass" id="btn-pass" disabled>PASS</button>
+        <div class="selected-info" id="selected-info">Select cards to play</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ROUND END SCREEN -->
+<div id="screen-round-end" class="screen hidden">
+  <div class="round-end-overlay">
+    <div class="round-end-panel">
+      <h2 id="round-end-title">ROUND COMPLETE</h2>
+      <div id="round-end-rankings" class="round-end-rankings"></div>
+      <button class="btn-primary" id="btn-next-round">NEXT ROUND</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME OVER SCREEN -->
+<div id="screen-gameover" class="screen hidden">
+  <div class="gameover-overlay">
+    <div class="gameover-panel">
+      <div class="gameover-title">GAME OVER</div>
+      <div id="final-rankings" class="final-rankings"></div>
+      <button class="btn-primary" id="btn-play-again">PLAY AGAIN</button>
+    </div>
+  </div>
+</div>
+
+<!-- Notification toast -->
+<div id="toast" class="toast hidden"></div>
+
+<script src="https://unpkg.com/netplayjs@0.4.2/dist/netplay.js"></script>
+<script src="cards.js"></script>
+<script src="netplay-bridge.js"></script>
+<script src="game.js"></script>
+<script src="ui.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
