@@ -21,8 +21,8 @@ const CARD_SPRITESHEET = 'tex/card_sheet.png';
 // Row 3: spades   A 2 3 4 5 6 7 8 9 10 J Q
 // Row 4: joker_red(0), joker_black(1), card_back(2), K_clubs(3), K_diamonds(4), K_hearts(5), K_spades(6)
 
-const CARD_W = 170.67;
-const CARD_H = 248;
+const CARD_W = 169;
+const CARD_H = 244;
 const SHEET_W = 2048;
 const SHEET_H = 1240;
 
