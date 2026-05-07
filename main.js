@@ -91,6 +91,7 @@ class TycoonApp {
     document.getElementById('btn-play-again').addEventListener('click', () => location.reload());
     document.getElementById('btn-play').addEventListener('click', () => this.submitPlay());
     document.getElementById('btn-pass').addEventListener('click', () => this.submitPass());
+    document.getElementById('btn-confirm-exchange').addEventListener('click', () => this.submitExchangeFromGame());
     document.getElementById('input-room-code').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.joinGame();
     });
@@ -257,6 +258,7 @@ class TycoonApp {
     this.net.broadcastPerPlayerState((guestPeerId) => {
       const guestIdx = this.game.players.findIndex(p => p.id === guestPeerId);
       if (guestIdx === -1) return null;
+      const guestId = guestPeerId;
       return {
         type: 'state_sync',
         state: {
@@ -264,7 +266,7 @@ class TycoonApp {
             id: p.id, nickname: p.nickname, avatar: p.avatar,
             rank: p.rank, score: p.score,
             hand: i === guestIdx ? p.hand : [],
-            handCount: p.hand ? p.hand.length : 0, // Fix: handle null hands
+            handCount: p.hand ? p.hand.length : 0,
             finished: p.finished, finishPosition: p.finishPosition
           })),
           round:            this.game.round,
@@ -277,7 +279,9 @@ class TycoonApp {
           phase:            this.game.phase,
           localPlayerIndex: guestIdx,
           exchangePending:  this.game.exchangePending,
-          exchangesDone:    [...this.game.exchangesDone]
+          exchangesDone:    [...this.game.exchangesDone],
+          // Only send this player's own new exchange hand
+          exchangeNewHand:  this.game.exchangeNewHands[guestId] || null
         }
       };
     });
@@ -343,6 +347,16 @@ class TycoonApp {
     g.phase            = state.phase;
     g.exchangePending  = state.exchangePending || [];
     g.exchangesDone    = new Set(state.exchangesDone || []);
+    // Restore this player's exchange new hand if present
+    if (state.exchangeNewHand && state.localPlayerIndex !== undefined) {
+      const localId = g.players[state.localPlayerIndex]?.id;
+      if (localId) {
+        if (!g.exchangeNewHands) g.exchangeNewHands = {};
+        g.exchangeNewHands[localId] = state.exchangeNewHand;
+      }
+    } else if (state.phase !== 'exchange') {
+      g.exchangeNewHands = {};
+    }
 
     if (state.localPlayerIndex !== undefined) {
       this.localPlayerIndex      = state.localPlayerIndex;
@@ -375,10 +389,12 @@ class TycoonApp {
 
     // Screen Switching
     if (state.phase === 'exchange') {
-      UI.showScreen('exchange');
-      this.renderExchangeScreen();
-    } else if (state.phase === 'playing') {
       UI.showScreen('game');
+      this.renderExchangeOnGameScreen();
+    } else if (state.phase === 'playing') {
+      this._hideExchangeBanner();
+      UI.showScreen('game');
+      this._showReceivedCardsToast();
     } else if (state.phase === 'round_end') {
       this._stopClientTimer();
       UI.showScreen('round-end');
@@ -396,10 +412,14 @@ class TycoonApp {
     
     const phase = state.phase;
     if (phase === 'exchange') {
-      UI.showScreen('exchange');
-      this.renderExchangeScreen();
+      UI.showScreen('game');
+      this.renderExchangeOnGameScreen();
     }
-    else if (phase === 'playing') UI.showScreen('game');
+    else if (phase === 'playing') {
+      this._hideExchangeBanner();
+      UI.showScreen('game');
+      this._showReceivedCardsToast();
+    }
     else if (phase === 'round_end') {
       UI.showScreen('round-end');
       UI.renderRoundEnd(this.game.players, this.game.round, this.game.finishOrder);
@@ -414,7 +434,6 @@ class TycoonApp {
     const g           = this.game;
     const state       = g.getState();
     const localPlayer = g.players[this.localPlayerIndex];
-    const hand        = g.getLocalHand() || [];
     const isMyTurn    = g.isPlayerTurn(this.localId);
 
     UI.renderScoresMini(state.players);
@@ -424,6 +443,10 @@ class TycoonApp {
     UI.renderRevolution(g.revolutionActive);
     UI.renderTimer(this.isHost ? g.turnTimer : this._lastKnownTimer);
 
+    // Don't overwrite exchange hand rendering during exchange phase
+    if (g.phase === 'exchange') return;
+
+    const hand = g.getLocalHand() || [];
     const playableIds = isMyTurn ? Cards.getPlayableCards(hand, g.currentPlay, g.revolutionActive) : new Set();
     UI.renderHand(hand, this.selectedCards, playableIds, (card) => this.toggleCard(card), g.revolutionActive);
 
@@ -472,75 +495,165 @@ class TycoonApp {
     this.net.sendToHost({ type: 'next_round' });
   }
 
-  renderExchangeScreen() {
+  _hideExchangeBanner() {
+    const banner = document.getElementById('exchange-banner');
+    if (banner) banner.classList.add('hidden');
+    const confirmBtn = document.getElementById('btn-confirm-exchange');
+    const playBtn = document.getElementById('btn-play');
+    const passBtn = document.getElementById('btn-pass');
+    if (confirmBtn) confirmBtn.classList.add('hidden');
+    if (playBtn) playBtn.classList.remove('hidden');
+    if (passBtn) passBtn.classList.remove('hidden');
+  }
+
+  _showReceivedCardsToast() {
+    // Only show if we actually went through an exchange (round > 1)
+    if (this.game.round <= 1) return;
+    const hand = this.game.getLocalHand() || [];
+    const newCards = hand.filter(c => c.isNew);
+    if (newCards.length === 0) return;
+    const names = newCards.map(c => Cards.cardDisplayName(c)).join(' & ');
+    UI.showToast(`You received: ${names}`, 5000);
+    // Clear the isNew flag so it doesn't show again
+    hand.forEach(c => { delete c.isNew; });
+  }
+
+  renderExchangeOnGameScreen() {
     const g = this.game;
-    const exchangeInfo = g.getExchangeInfo();
-    const hand = g.getLocalHand() || [];
+    const localId = g.players[this.localPlayerIndex]?.id;
+    const exchangeInfo = g.getExchangeInfo();        // null if Beggar/Commoner (auto-submitted)
+    const newHand = g.getLocalExchangeHand();         // freshly dealt hand for this player
+
+    const banner = document.getElementById('exchange-banner');
+    const bannerTitle = document.getElementById('exchange-banner-title');
+    const bannerDesc = document.getElementById('exchange-banner-desc');
+    const playBtn = document.getElementById('btn-play');
+    const passBtn = document.getElementById('btn-pass');
+    const confirmBtn = document.getElementById('btn-confirm-exchange');
+    const selInfo = document.getElementById('selected-info');
+    const handEl = document.getElementById('hand-cards');
+
+    // Always show banner, hide play/pass
+    if (banner) banner.classList.remove('hidden');
+    if (playBtn) playBtn.classList.add('hidden');
+    if (passBtn) passBtn.classList.add('hidden');
+
+    const alreadySubmitted = exchangeInfo === null && localId &&
+      g.exchangePending.some(e => e.giverId === localId);
+
+    if (!newHand) {
+      // No exchange for this player at all (e.g. 2-3 player game fallback)
+      if (bannerTitle) bannerTitle.textContent = 'CARD EXCHANGE';
+      if (bannerDesc) bannerDesc.textContent = 'Waiting for other players...';
+      if (confirmBtn) confirmBtn.classList.add('hidden');
+      if (selInfo) selInfo.textContent = '';
+      return;
+    }
+
+    // Determine role
+    const isMustGiveBest = !exchangeInfo; // Beggar/Commoner auto-submitted, now waiting
+    const required = exchangeInfo ? exchangeInfo.count : 0;
+
+    // Build rank label for banner
+    const localPlayer = g.players[this.localPlayerIndex];
+    const rankLabel = localPlayer?.rank ? localPlayer.rank.toUpperCase() : '';
 
     if (!exchangeInfo) {
-      // This player has no exchange to do (or already submitted) — show waiting UI
-      const title = document.getElementById('exchange-title');
-      const desc = document.getElementById('exchange-desc');
-      const handEl = document.getElementById('exchange-hand');
-      const confirmBtn = document.getElementById('btn-confirm-exchange');
-      const selInfo = document.getElementById('exchange-selected-info');
-      if (title) title.textContent = 'CARD EXCHANGE';
-      if (desc) desc.textContent = '';
-      if (selInfo) selInfo.textContent = '';
-      if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.style.display = 'none'; }
-      if (handEl) {
-        handEl.innerHTML = '';
-        const waiting = document.createElement('div');
-        waiting.className = 'exchange-waiting';
-        waiting.innerHTML = `
-          <div class="exchange-waiting-icon">⏳</div>
-          <div class="exchange-waiting-text">Waiting for other players to choose cards...</div>
-        `;
-        handEl.appendChild(waiting);
+      // Beggar or Commoner — auto-submitted, waiting for Tycoon/Rich to choose
+      if (bannerTitle) bannerTitle.textContent = '⚔ CARD EXCHANGE — ' + rankLabel;
+      // Find what cards they're giving away (their top N from new hand)
+      const myPending = g.exchangePending.find(e => e.giverId === localId);
+      if (myPending && bannerDesc) {
+        const newHandSorted = [...newHand].sort((a,b) => Cards.cardStrength(a,false) - Cards.cardStrength(b,false));
+        const giving = newHandSorted.slice(-myPending.count);
+        const givingNames = giving.map(c => Cards.cardDisplayName(c)).join(' & ');
+        bannerDesc.textContent = `Your ${myPending.count} highest card${myPending.count > 1 ? 's' : ''} (${givingNames}) will be given away. Waiting for others to select...`;
       }
+      if (confirmBtn) confirmBtn.classList.add('hidden');
+      if (selInfo) selInfo.textContent = 'Waiting for other players...';
+      // Show new hand with top N highlighted as "locked" and rest dimmed
+      this._renderExchangeHand(newHand, null, myPending?.count || 0, false);
       return;
     }
 
-    // If hand is empty, show waiting — state hasn't synced yet
-    if (hand.length === 0) {
-      const title = document.getElementById('exchange-title');
-      const desc = document.getElementById('exchange-desc');
-      const handEl = document.getElementById('exchange-hand');
-      const confirmBtn = document.getElementById('btn-confirm-exchange');
-      const selInfo = document.getElementById('exchange-selected-info');
-      if (title) title.textContent = 'CARD EXCHANGE';
-      if (desc) desc.textContent = '';
-      if (selInfo) selInfo.textContent = '';
-      if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.style.display = 'none'; }
-      if (handEl) {
-        handEl.innerHTML = '';
-        const waiting = document.createElement('div');
-        waiting.className = 'exchange-waiting';
-        waiting.innerHTML = `
-          <div class="exchange-waiting-icon">⏳</div>
-          <div class="exchange-waiting-text">Waiting for other players to choose cards...</div>
-        `;
-        handEl.appendChild(waiting);
-      }
-      return;
+    // Tycoon or Rich — must choose cards to give
+    if (bannerTitle) bannerTitle.textContent = '⚔ CARD EXCHANGE — ' + rankLabel;
+    if (bannerDesc) bannerDesc.textContent = `Choose ${required} card${required > 1 ? 's' : ''} to give away to the lower-ranked player.`;
+
+    if (confirmBtn) {
+      confirmBtn.classList.remove('hidden');
+      confirmBtn.disabled = this.exchangeSelected.size !== required;
+      confirmBtn.onclick = () => this.submitExchangeFromGame();
+    }
+    if (selInfo) selInfo.textContent = `${this.exchangeSelected.size}/${required} selected`;
+
+    this._renderExchangeHand(newHand, this.exchangeSelected, required, true);
+  }
+
+  _renderExchangeHand(newHand, selectedIds, requiredCount, isChooser) {
+    const handEl = document.getElementById('hand-cards');
+    if (!handEl) return;
+    handEl.innerHTML = '';
+
+    const sorted = Cards.sortHand(newHand, false);
+
+    // For non-choosers: mark top N as "locked to give away"
+    let lockedIds = new Set();
+    if (!isChooser && requiredCount > 0) {
+      sorted.slice(-requiredCount).forEach(c => lockedIds.add(c.id));
     }
 
-    // Restore confirm button visibility in case it was hidden
-    const confirmBtn = document.getElementById('btn-confirm-exchange');
-    if (confirmBtn) confirmBtn.style.display = '';
-    UI.renderExchange(exchangeInfo, hand, this.exchangeSelected, (card) => this.toggleExchangeCard(card), (cards) => this.submitExchange(cards), g.revolutionActive);
+    sorted.forEach(card => {
+      const isLocked = lockedIds.has(card.id);
+      const isSelected = selectedIds ? selectedIds.has(card.id) : false;
+
+      const el = UI.createCardEl(card, {
+        selected: isSelected,
+        playable: isChooser || isLocked // dim everything that's neither selectable nor locked
+      });
+
+      // Locked cards (Beggar/Commoner's top N) get a special highlight
+      if (isLocked) {
+        el.classList.add('exchange-locked');
+      }
+
+      // Non-chooser, non-locked cards: dim them
+      if (!isChooser && !isLocked) {
+        el.style.opacity = '0.4';
+        el.style.cursor = 'not-allowed';
+      }
+
+      if (isChooser) {
+        el.style.cursor = 'pointer';
+        el.style.marginLeft = ''; // reset — hand-cards handles overlap
+        el.addEventListener('click', () => {
+          if (selectedIds.has(card.id)) selectedIds.delete(card.id);
+          else selectedIds.add(card.id);
+          this.renderExchangeOnGameScreen();
+        });
+      }
+
+      handEl.appendChild(el);
+    });
   }
 
-  toggleExchangeCard(card) {
-    if (this.exchangeSelected.has(card.id)) this.exchangeSelected.delete(card.id);
-    else this.exchangeSelected.add(card.id);
-    this.renderExchangeScreen();
-  }
-
-  submitExchange(cards) {
+  submitExchangeFromGame() {
+    const g = this.game;
+    const newHand = g.getLocalExchangeHand();
+    if (!newHand) return;
+    const cards = [...this.exchangeSelected]
+      .map(id => newHand.find(c => c.id === id))
+      .filter(Boolean);
+    const exchangeInfo = g.getExchangeInfo();
+    if (!exchangeInfo || cards.length !== exchangeInfo.count) return;
     this.exchangeSelected.clear();
     this.net.sendToHost({ type: 'exchange_submit', cards });
   }
+
+  // Legacy — kept for compat but no longer used
+  renderExchangeScreen() { this.renderExchangeOnGameScreen(); }
+  toggleExchangeCard(card) {}
+  submitExchange(cards) {}
 }
 
 window.addEventListener('DOMContentLoaded', () => {

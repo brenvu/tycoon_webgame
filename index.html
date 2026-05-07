@@ -80,17 +80,6 @@
 </div>
 
 <!-- CARD EXCHANGE SCREEN (between rounds) -->
-<div id="screen-exchange" class="screen hidden">
-  <div class="exchange-overlay">
-    <div class="exchange-panel">
-      <h2 id="exchange-title">CARD EXCHANGE</h2>
-      <p id="exchange-desc"></p>
-      <div id="exchange-hand" class="exchange-hand"></div>
-      <div id="exchange-selected-info" class="exchange-selected-info"></div>
-      <button class="btn-primary" id="btn-confirm-exchange" disabled>CONFIRM</button>
-    </div>
-  </div>
-</div>
 
 <!-- GAME SCREEN -->
 <div id="screen-game" class="screen hidden">
@@ -146,12 +135,18 @@
       </div>
 
       <div class="hand-area">
+        <!-- Exchange banner shown during exchange phase -->
+        <div id="exchange-banner" class="exchange-banner hidden">
+          <div class="exchange-banner-title" id="exchange-banner-title">CARD EXCHANGE</div>
+          <div class="exchange-banner-desc" id="exchange-banner-desc"></div>
+        </div>
         <div class="hand-cards" id="hand-cards"></div>
       </div>
 
       <div class="action-buttons">
         <button class="btn-action btn-play" id="btn-play" disabled>PLAY CARDS</button>
         <button class="btn-action btn-pass" id="btn-pass" disabled>PASS</button>
+        <button class="btn-action btn-confirm-exchange hidden" id="btn-confirm-exchange" disabled>CONFIRM EXCHANGE</button>
         <div class="selected-info" id="selected-info">Select cards to play</div>
       </div>
     </div>

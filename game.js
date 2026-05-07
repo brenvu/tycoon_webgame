@@ -33,6 +33,8 @@ class TycoonGame {
     this.timerInterval = null;
     this.exchangePending = []; // [{giverId, receiverId, count}]
     this.exchangesDone = new Set();
+    this.exchangeNewHands = {}; // playerId -> newly dealt hand (choosing from this)
+    this.exchangeBuffer = {};   // giverId -> cards they chose to give
     this.localPlayerIndex = -1;
     this.hostIndex = 0;
     this.onStateChange = null; // callback
@@ -61,18 +63,24 @@ class TycoonGame {
   }
 
   startRound() {
-    const deck = Cards.createDeck();
-    const hands = Cards.dealCards(deck, this.players.length);
-
-    // Reset revolution BEFORE sorting so hands are ordered with normal values
+    // Reset revolution BEFORE sorting
     this.pile = [];
     this.currentPlay = null;
     this.passCount = 0;
     this.revolutionActive = false;
     this.finishOrder = [];
 
-    this.players.forEach((p, i) => {
-      p.hand = Cards.sortHand(hands[i], this.revolutionActive);
+    // Only deal new cards if hands weren't already set by exchange
+    const handsAlreadyDealt = this.players.every(p => p.hand && p.hand.length > 0);
+    if (!handsAlreadyDealt) {
+      const deck = Cards.createDeck();
+      const hands = Cards.dealCards(deck, this.players.length);
+      this.players.forEach((p, i) => {
+        p.hand = Cards.sortHand(hands[i], false);
+      });
+    }
+
+    this.players.forEach(p => {
       p.finished = false;
       p.finishPosition = null;
     });
@@ -89,15 +97,10 @@ class TycoonGame {
   // ---- Card Exchange (between rounds) ----
 
   setupExchange() {
-    // Reset revolution state so exchange screen shows correct card values
+    // Reset revolution state
     this.revolutionActive = false;
 
-    // Re-sort all hands with normal (non-revolution) ordering
-    this.players.forEach(p => {
-      p.hand = Cards.sortHand(p.hand, false);
-    });
-
-    // Find ranks
+    // Find ranks from PREVIOUS round
     const tycoon  = this.players.find(p => p.rank === 'tycoon');
     const rich     = this.players.find(p => p.rank === 'rich');
     const commoner = this.players.find(p => p.rank === 'commoner');
@@ -105,21 +108,42 @@ class TycoonGame {
 
     this.exchangePending = [];
     this.exchangesDone = new Set();
+    this.exchangeNewHands = {};
+    this.exchangeBuffer = {};
 
     if (!tycoon || !rich || !commoner || !beggar) {
-      // First round or < 4 players — no exchange
+      // First round or < 4 players — skip exchange, go straight to round
       this.startRound();
       return;
     }
 
-    // Beggar must give 2 best cards to Tycoon
+    // Deal new hands NOW — players will choose from these fresh hands
+    const deck = Cards.createDeck();
+    const hands = Cards.dealCards(deck, this.players.length);
+    this.players.forEach((p, i) => {
+      this.exchangeNewHands[p.id] = Cards.sortHand(hands[i], false);
+    });
+
+    // Beggar must give 2 highest cards to Tycoon (no choice)
     this.exchangePending.push({ giverId: beggar.id,   receiverId: tycoon.id,  count: 2, giversChoice: false });
-    // Commoner must give 1 best card to Rich
+    // Commoner must give 1 highest card to Rich (no choice)
     this.exchangePending.push({ giverId: commoner.id, receiverId: rich.id,    count: 1, giversChoice: false });
     // Tycoon chooses 2 cards to give Beggar
     this.exchangePending.push({ giverId: tycoon.id,   receiverId: beggar.id,  count: 2, giversChoice: true  });
     // Rich chooses 1 card to give Commoner
     this.exchangePending.push({ giverId: rich.id,     receiverId: commoner.id,count: 1, giversChoice: true  });
+
+    // Players with no choice auto-submit their top N cards
+    [
+      { p: beggar,   count: 2 },
+      { p: commoner, count: 1 }
+    ].forEach(({ p, count }) => {
+      const newHand = this.exchangeNewHands[p.id];
+      const topN = newHand.slice(-count); // sorted ascending, so last N = highest
+      const key = p.id + '->' + this.exchangePending.find(e => e.giverId === p.id).receiverId;
+      this.exchangeBuffer[p.id] = topN;
+      this.exchangesDone.add(key);
+    });
 
     this.phase = GamePhase.EXCHANGE;
     this._notify();
@@ -129,32 +153,49 @@ class TycoonGame {
     return this.exchangePending.find(e => e.giverId === playerId && !this.exchangesDone.has(e.giverId + '->' + e.receiverId));
   }
 
+  // Returns the new hand for exchange selection (freshly dealt, not yet modified by exchange)
+  getExchangeNewHand(playerId) {
+    return this.exchangeNewHands[playerId] || null;
+  }
+
   submitExchange(giverId, cards) {
     const exchange = this.exchangePending.find(e => e.giverId === giverId && !this.exchangesDone.has(e.giverId + '->' + e.receiverId));
     if (!exchange) return false;
-
-    const giver = this.players.find(p => p.id === giverId);
-    const receiver = this.players.find(p => p.id === exchange.receiverId);
-
-    if (!giver || !receiver) return false;
     if (cards.length !== exchange.count) return false;
 
-    // Remove from giver, add to receiver
-    cards.forEach(card => {
-      const idx = giver.hand.findIndex(c => c.id === card.id);
-      if (idx !== -1) giver.hand.splice(idx, 1);
-      receiver.hand.push(card);
-    });
-
-    giver.hand = Cards.sortHand(giver.hand, this.revolutionActive);
-    receiver.hand = Cards.sortHand(receiver.hand, this.revolutionActive);
-
+    // Buffer this submission — don't touch hands yet
+    this.exchangeBuffer[giverId] = cards;
     this.exchangesDone.add(giverId + '->' + exchange.receiverId);
-    this._log(`${giver.nickname} gave ${cards.length} card(s) to ${receiver.nickname}`);
+    this._log(`${this.players.find(p => p.id === giverId)?.nickname} chose their exchange cards`);
 
-    // Check if all exchanges done
+    // Check if Tycoon AND Rich have both submitted (Beggar/Commoner auto-submitted in setupExchange)
     const allDone = this.exchangePending.every(e => this.exchangesDone.has(e.giverId + '->' + e.receiverId));
     if (allDone) {
+      // Apply ALL exchanges simultaneously from the freshly dealt hands
+      const finalHands = {};
+      this.players.forEach(p => {
+        finalHands[p.id] = [...(this.exchangeNewHands[p.id] || [])];
+      });
+
+      // Remove given cards from givers, add to receivers (mark received cards as new)
+      this.exchangePending.forEach(e => {
+        const givenCards = this.exchangeBuffer[e.giverId] || [];
+        givenCards.forEach(card => {
+          const idx = finalHands[e.giverId].findIndex(c => c.id === card.id);
+          if (idx !== -1) finalHands[e.giverId].splice(idx, 1);
+        });
+        givenCards.forEach(card => {
+          finalHands[e.receiverId].push({ ...card, isNew: true });
+        });
+      });
+
+      // Apply final hands — isNew flag will be used by client to show "You received" toast
+      this.players.forEach(p => {
+        p.hand = Cards.sortHand(finalHands[p.id] || [], false);
+      });
+
+      this.exchangeNewHands = {};
+      this.exchangeBuffer = {};
       this.startRound();
     } else {
       this._notify();
@@ -454,6 +495,7 @@ class TycoonGame {
       turnTimer: this.turnTimer,
       exchangePending: this.exchangePending,
       exchangesDone: [...this.exchangesDone],
+      exchangeNewHands: this.exchangeNewHands,
       localPlayerIndex: this.localPlayerIndex
     };
   }
@@ -461,6 +503,12 @@ class TycoonGame {
   getLocalHand() {
     if (this.localPlayerIndex < 0) return [];
     return this.players[this.localPlayerIndex]?.hand || [];
+  }
+
+  getLocalExchangeHand() {
+    if (this.localPlayerIndex < 0) return null;
+    const localId = this.players[this.localPlayerIndex]?.id;
+    return this.exchangeNewHands[localId] || null;
   }
 
   getExchangeInfo() {

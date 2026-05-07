@@ -809,8 +809,7 @@ select option { background: #1a1a1f; }
 .hand-cards {
   display: flex;
   align-items: flex-end;
-  gap: -8px;
-  padding: 8px 8px 0;
+  padding: 28px 8px 0; /* top padding absorbs the hover lift — no layout reflow */
   min-height: calc(var(--card-h) + 28px);
   width: max-content;
   min-width: 100%;
@@ -900,6 +899,51 @@ select option { background: #1a1a1f; }
   align-items: center;
   gap: 10px;
 }
+
+/* Exchange banner — inline on game screen */
+.exchange-banner {
+  background: linear-gradient(135deg, rgba(232,0,28,0.15) 0%, rgba(10,10,10,0.95) 60%);
+  border: 1px solid var(--p5-red);
+  border-left: 4px solid var(--p5-red);
+  padding: 10px 16px;
+  margin-bottom: 6px;
+}
+
+.exchange-banner-title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 4px;
+  color: var(--p5-gold);
+  margin-bottom: 4px;
+}
+
+.exchange-banner-desc {
+  font-size: 11px;
+  color: #ccc;
+  letter-spacing: 1px;
+  line-height: 1.5;
+}
+
+/* Cards locked for giving away (Beggar/Commoner's top N) */
+.card-el.exchange-locked {
+  border-color: var(--p5-red) !important;
+  box-shadow: 0 0 12px rgba(232,0,28,0.6) !important;
+  transform: translateY(-10px);
+  z-index: 5;
+}
+
+/* Confirm exchange button */
+.btn-confirm-exchange {
+  background: var(--p5-gold);
+  color: #000;
+  font-weight: 900;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+.btn-confirm-exchange:hover:not(:disabled) {
+  background: #ffe04d;
+  box-shadow: 0 4px 16px rgba(255,215,0,0.4);
+}
+.btn-confirm-exchange:disabled { background: #3a3010; color: #555; cursor: not-allowed; }
 
 .btn-action {
   padding: 10px 20px;
