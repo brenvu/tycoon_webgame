@@ -19,26 +19,8 @@ const UI = {
       el.style.cssText = Cards.getCardSpriteStyle(card);
       el.dataset.cardId = card.id;
 
-      // Tooltip
+      // Tooltip only — no visible badges on card faces
       el.title = Cards.cardDisplayName(card);
-
-      // Special badge
-      if (Cards.is8Stop(card)) {
-        const badge = document.createElement('div');
-        badge.className = 'card-badge stop-badge';
-        badge.textContent = 'STOP';
-        el.appendChild(badge);
-      } else if (card.joker) {
-        const badge = document.createElement('div');
-        badge.className = 'card-badge joker-badge';
-        badge.textContent = 'WILD';
-        el.appendChild(badge);
-      } else if (card.suit === 'spades' && card.rank === '3') {
-        const badge = document.createElement('div');
-        badge.className = 'card-badge spade-badge';
-        badge.textContent = '3♠';
-        el.appendChild(badge);
-      }
     }
 
     return el;
@@ -59,18 +41,18 @@ const UI = {
 
       const cardEl = this.createCardEl(card, { selected: isSelected, playable: isPlayable });
 
-      // Stable JS hover — 150ms leave delay bridges the gap when card lifts into cursor
+      // Stable hover: add class on enter, remove with 200ms delay on leave
+      // The delay bridges the gap when the card physically moves under the cursor
       let leaveTimer = null;
       cardEl.addEventListener('mouseenter', () => {
         if (leaveTimer) { clearTimeout(leaveTimer); leaveTimer = null; }
         cardEl.classList.add('card-hovered');
       });
-      cardEl.addEventListener('mouseleave', (e) => {
-        // Only remove hover if the mouse moved to something outside this card
+      cardEl.addEventListener('mouseleave', () => {
         leaveTimer = setTimeout(() => {
           cardEl.classList.remove('card-hovered');
           leaveTimer = null;
-        }, 150);
+        }, 200);
       });
 
       if (isPlayable) {
@@ -198,24 +180,13 @@ const UI = {
 
       const cardsEl = document.createElement('div');
       cardsEl.className = 'opponent-cards-count';
-      cardsEl.innerHTML = `Cards Left <span class="count-num">${player.handCount !== undefined ? player.handCount : '?'}</span>`;
+      cardsEl.innerHTML = `<span class="cards-left-label">Cards Left</span><br><span class="count-num-big">${player.handCount !== undefined ? player.handCount : '?'}</span>`;
 
       info.appendChild(nameEl);
       info.appendChild(rankEl);
       info.appendChild(cardsEl);
 
-      // Mini face-down cards — tighter red-themed stack
-      const miniCards = document.createElement('div');
-      miniCards.className = 'opponent-mini-cards';
-      const cardCount = player.handCount || 0;
-      // Show up to 13 "pips", each representing 1+ cards
-      const visCount = Math.min(cardCount, 13);
-      for (let i = 0; i < visCount; i++) {
-        const c = this.createCardEl(null, { faceDown: true, small: true });
-        c.style.marginLeft = i > 0 ? '-14px' : '0';
-        c.style.zIndex = String(i);
-        miniCards.appendChild(c);
-      }
+      // No mini-cards — just show count
 
       if (player.finished) {
         el.classList.add('player-finished');
@@ -225,6 +196,7 @@ const UI = {
         el.appendChild(doneEl);
       }
 
+      // Turn indicator at TOP of the panel content (not above it, so it's never clipped)
       if (isActive) {
         const turnEl = document.createElement('div');
         turnEl.className = 'active-turn-indicator';
@@ -232,17 +204,16 @@ const UI = {
         el.appendChild(turnEl);
       }
 
-      // Pass label
+      // Pass label at bottom of panel
       if (player.passedThisTrick && !player.finished) {
         const passLabel = document.createElement('div');
         passLabel.className = 'pass-label';
         passLabel.textContent = 'PASSED';
-        el.appendChild(passLabel);
+        info.appendChild(passLabel);
       }
 
       el.appendChild(avatarEl);
       el.appendChild(info);
-      el.appendChild(miniCards);
       area.appendChild(el);
     });
   },

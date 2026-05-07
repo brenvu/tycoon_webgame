@@ -295,8 +295,7 @@ class TycoonApp {
           // Log messages for guest event feed (tagged with seq numbers)
           recentLogs: this.game.recentLogs ? [...this.game.recentLogs] : [],
           logSeq: this.game.logSeq || 0,
-          // Cards this guest received — only sent once right after exchange completes
-          receivedCardIds: (this._pendingReceivedCards && this._pendingReceivedCards[guestId]) || []
+          // receivedCardIds removed — sent as separate message to avoid re-fire
         }
       };
     });
@@ -338,6 +337,17 @@ class TycoonApp {
         if (this.isHost) {
           this.game.setupExchange();
           this._broadcastFullState();
+        }
+        break;
+      case 'received_cards':
+        // One-time message from host telling this guest what cards they received
+        if (!this.isHost && msg.cardIds && msg.cardIds.length > 0 && !this._receivedModalShown) {
+          const hand = this.game.getLocalHand() || [];
+          msg.cardIds.forEach(id => {
+            const card = hand.find(c => c.id === id);
+            if (card) card.isNew = true;
+          });
+          this._showReceivedCardsToast();
         }
         break;
       case 'play_error':
@@ -411,15 +421,6 @@ class TycoonApp {
       }
     }
 
-    // Mark received cards for guest modal
-    if (state.receivedCardIds && state.receivedCardIds.length > 0) {
-      const hand = g.players[this.localPlayerIndex]?.hand || [];
-      state.receivedCardIds.forEach(id => {
-        const card = hand.find(c => c.id === id);
-        if (card) card.isNew = true;
-      });
-    }
-
     this.renderGameState();
 
     // Screen Switching
@@ -445,21 +446,18 @@ class TycoonApp {
     this.renderGameState();
 
     const phase = state.phase;
-    if (phase === 'playing' && this.isHost && this._prevPhase === 'exchange') {
-      // Exchange just finished — collect received cards for each guest for one-shot delivery
-      this._pendingReceivedCards = {};
+    if (phase === 'playing' && this._prevPhase === 'exchange' && this.isHost) {
+      // Exchange just finished — send received_cards to each guest as a dedicated one-time message
       this.game.players.forEach(p => {
         const newCards = (p.hand || []).filter(c => c.isNew).map(c => c.id);
-        if (newCards.length > 0) this._pendingReceivedCards[p.id] = newCards;
+        if (newCards.length > 0 && p.id !== this.localId) {
+          this.net.sendToPlayer(p.id, { type: 'received_cards', cardIds: newCards });
+        }
       });
     }
     this._prevPhase = phase;
 
     if (this.isHost) this._broadcastFullState();
-    // Clear pending after one broadcast cycle
-    if (this._pendingReceivedCards && Object.keys(this._pendingReceivedCards).length > 0) {
-      setTimeout(() => { this._pendingReceivedCards = null; }, 200);
-    }
 
     if (phase === 'exchange') {
       UI.showScreen('game');
@@ -493,8 +491,12 @@ class TycoonApp {
     UI.renderRevolution(g.revolutionActive);
     UI.renderTimer(this.isHost ? g.turnTimer : this._lastKnownTimer);
 
-    // Don't overwrite exchange hand rendering during exchange phase
-    if (g.phase === 'exchange') return;
+    // During exchange phase, clear the main hand display (exchange renders its own)
+    if (g.phase === 'exchange') {
+      const handEl = document.getElementById('hand-cards');
+      if (handEl) handEl.innerHTML = '';
+      return;
+    }
 
     const hand = g.getLocalHand() || [];
     const playableIds = isMyTurn ? Cards.getPlayableCards(hand, g.currentPlay, g.revolutionActive) : new Set();

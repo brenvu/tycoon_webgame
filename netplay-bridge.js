@@ -377,6 +377,13 @@ class TycoonNetwork {
     });
   }
 
+  sendToPlayer(peerId, msg) {
+    // Send a message to a specific peer (host to guest)
+    if (!this.isHost) return;
+    const conn = this.connections.find(c => c.peer === peerId);
+    if (conn) this._send(conn, msg);
+  }
+
   sendToHost(msg) {
     if (this.isHost) {
       if (this.onGameMessage) this.onGameMessage(msg, this.localId);

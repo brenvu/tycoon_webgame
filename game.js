@@ -55,7 +55,7 @@ class TycoonGame {
     if (this.players.length >= 4) return false;
     this.players.push({
       id, nickname, avatar,
-      rank: 'poor',
+      rank: 'commoner',
       score: 0,
       hand: [],
       finished: false,
