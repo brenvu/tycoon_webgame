@@ -2,9 +2,7 @@
 // TYCOON — Main Application Controller
 // ============================================================
 
-const KNOWN_AVATARS = [
-  'Ren Amamiya.png'
-];
+const KNOWN_AVATARS = ['Ren Amamiya.png'];
 
 class TycoonApp {
   constructor() {
@@ -17,6 +15,10 @@ class TycoonApp {
     this.isHost = false;
     this.playerInfo = { nickname: 'Phantom', avatar: '' };
     this.pendingExchange = null;
+
+    // Client-side timer tick (guests don't have game.timerInterval)
+    this._timerTick = null;
+    this._lastKnownTimer = 90;
 
     this.game.onStateChange = (state) => this.onGameStateChange(state);
     this.game.onActionLog = (msg) => UI.addLogEntry(msg);
@@ -41,7 +43,6 @@ class TycoonApp {
         this.playerInfo = { ...this.playerInfo, ...p };
       }
     } catch(e) {}
-
     const nickInput = document.getElementById('input-nickname');
     const avatarSel = document.getElementById('select-avatar');
     if (nickInput) nickInput.value = this.playerInfo.nickname;
@@ -63,6 +64,30 @@ class TycoonApp {
       .catch(() => UI.populateAvatarSelect(KNOWN_AVATARS));
   }
 
+  // ---- Client-side timer (for guests) ----
+  // The host runs the authoritative timer inside game.js.
+  // Guests get a timer value via state_sync, then count down
+  // locally so the bar moves smoothly between syncs.
+
+  _startClientTimer(seconds) {
+    this._stopClientTimer();
+    this._lastKnownTimer = seconds;
+    // Guests run a local countdown; host timer already ticks via game._notify()
+    if (this.isHost) return;
+    this._timerTick = setInterval(() => {
+      this._lastKnownTimer = Math.max(0, this._lastKnownTimer - 1);
+      UI.renderTimer(this._lastKnownTimer);
+      if (this._lastKnownTimer <= 0) this._stopClientTimer();
+    }, 1000);
+  }
+
+  _stopClientTimer() {
+    if (this._timerTick) {
+      clearInterval(this._timerTick);
+      this._timerTick = null;
+    }
+  }
+
   // ---- Lobby UI ----
 
   setupLobbyUI() {
@@ -74,11 +99,9 @@ class TycoonApp {
     document.getElementById('btn-play-again').addEventListener('click', () => location.reload());
     document.getElementById('btn-play').addEventListener('click', () => this.submitPlay());
     document.getElementById('btn-pass').addEventListener('click', () => this.submitPass());
-
     document.getElementById('input-room-code').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.joinGame();
     });
-
     document.getElementById('input-nickname').addEventListener('blur', () => this.saveProfile());
   }
 
@@ -182,8 +205,7 @@ class TycoonApp {
   }
 
   renderWaiting() {
-    const players = this.net.getPlayers();
-    UI.renderWaitingRoom(players, this.isHost, this.localId);
+    UI.renderWaitingRoom(this.net.getPlayers(), this.isHost, this.localId);
   }
 
   copyRoomCode() {
@@ -202,24 +224,22 @@ class TycoonApp {
     if (!this.isHost) return;
     const players = this.net.getPlayers();
     if (players.length < 2) { this.showError('Need at least 2 players to start.'); return; }
-
-    // Tell guests to start
     this.net.broadcastGameMessage({ type: 'game_start', players });
-
-    // Host initializes locally
     this._initGameLocally(players);
   }
 
   _initGameLocally(netPlayers) {
+    this._stopClientTimer();
     this.game.reset();
     netPlayers.forEach(p => this.game.addPlayer(p.id, p.nickname, p.avatar));
 
+    // localPlayerIndex must be set BEFORE startRound() fires _notify()
     this.localPlayerIndex = this.game.players.findIndex(p => p.id === this.localId);
     this.game.localPlayerIndex = this.localPlayerIndex;
     this.game.hostIndex = 0;
 
     UI.showScreen('game');
-    this.game.startRound();
+    this.game.startRound(); // fires _notify() → onGameStateChange()
 
     if (this.isHost) {
       this._broadcastFullState();
@@ -231,7 +251,6 @@ class TycoonApp {
     this.net.broadcastPerPlayerState((guestPeerId) => {
       const guestIdx = this.game.players.findIndex(p => p.id === guestPeerId);
       if (guestIdx === -1) return null;
-
       return {
         type: 'state_sync',
         state: {
@@ -242,17 +261,17 @@ class TycoonApp {
             handCount: p.hand.length,
             finished: p.finished, finishPosition: p.finishPosition
           })),
-          round:           this.game.round,
-          currentTurn:     this.game.currentTurn,
-          currentPlay:     this.game.currentPlay,
-          pile:            this.game.pile,
+          round:            this.game.round,
+          currentTurn:      this.game.currentTurn,
+          currentPlay:      this.game.currentPlay,
+          pile:             this.game.pile,
           revolutionActive: this.game.revolutionActive,
-          finishOrder:     this.game.finishOrder,
-          turnTimer:       this.game.turnTimer,
-          phase:           this.game.phase,
+          finishOrder:      this.game.finishOrder,
+          turnTimer:        this.game.turnTimer,
+          phase:            this.game.phase,
           localPlayerIndex: guestIdx,
-          exchangePending: this.game.exchangePending,
-          exchangesDone:   [...this.game.exchangesDone]
+          exchangePending:  this.game.exchangePending,
+          exchangesDone:    [...this.game.exchangesDone]
         }
       };
     });
@@ -262,19 +281,14 @@ class TycoonApp {
 
   handleGameMessage(msg, fromId) {
     if (!msg || !msg.type) return;
-
     switch (msg.type) {
 
       case 'game_start':
-        if (!this.isHost) {
-          this._initGameLocally(msg.players);
-        }
+        if (!this.isHost) this._initGameLocally(msg.players);
         break;
 
       case 'state_sync':
-        if (!this.isHost) {
-          this._applyRemoteState(msg.state);
-        }
+        if (!this.isHost) this._applyRemoteState(msg.state);
         break;
 
       case 'play_cards':
@@ -316,10 +330,15 @@ class TycoonApp {
     }
   }
 
+  // ---- Apply state received from host (guests only) ----
+
   _applyRemoteState(state) {
     if (!state) return;
-
     const g = this.game;
+
+    const prevTurn   = g.currentTurn;
+    const prevTimer  = g.turnTimer;
+
     g.round            = state.round;
     g.currentTurn      = state.currentTurn;
     g.currentPlay      = state.currentPlay;
@@ -339,15 +358,15 @@ class TycoonApp {
     if (state.players) {
       state.players.forEach((sp, i) => {
         if (!g.players[i]) g.players[i] = {};
-        const lp      = g.players[i];
-        lp.id         = sp.id;
-        lp.nickname   = sp.nickname;
-        lp.avatar     = sp.avatar;
-        lp.rank       = sp.rank;
-        lp.score      = sp.score;
-        lp.finished   = sp.finished;
+        const lp = g.players[i];
+        lp.id             = sp.id;
+        lp.nickname       = sp.nickname;
+        lp.avatar         = sp.avatar;
+        lp.rank           = sp.rank;
+        lp.score          = sp.score;
+        lp.finished       = sp.finished;
         lp.finishPosition = sp.finishPosition;
-        lp.handCount  = sp.handCount !== undefined ? sp.handCount : (sp.hand ? sp.hand.length : lp.handCount);
+        lp.handCount      = sp.handCount !== undefined ? sp.handCount : (sp.hand ? sp.hand.length : lp.handCount);
         if (sp.hand && sp.hand.length > 0) {
           lp.hand = sp.hand;
         } else if (sp.handCount !== undefined && lp.hand) {
@@ -355,6 +374,12 @@ class TycoonApp {
         }
       });
       while (g.players.length > state.players.length) g.players.pop();
+    }
+
+    // Restart client-side timer countdown whenever turn or timer resets
+    if (g.phase === 'playing' &&
+        (g.currentTurn !== prevTurn || Math.abs(g.turnTimer - prevTimer) > 2)) {
+      this._startClientTimer(g.turnTimer);
     }
 
     this.renderGameState();
@@ -365,20 +390,21 @@ class TycoonApp {
     } else if (state.phase === 'playing') {
       UI.showScreen('game');
     } else if (state.phase === 'round_end') {
+      this._stopClientTimer();
       UI.showScreen('round-end');
       UI.renderRoundEnd(g.players, g.round, g.finishOrder);
     } else if (state.phase === 'game_over') {
+      this._stopClientTimer();
       UI.showScreen('gameover');
       UI.renderGameOver(g.players);
     }
   }
 
-  // ---- Game State Changes (host-local) ----
+  // ---- Game State Changes (host fires these via game._notify) ----
 
   onGameStateChange(state) {
     this.renderGameState();
     const phase = state.phase;
-
     if (phase === 'exchange') {
       UI.showScreen('exchange');
       this.renderExchangeScreen();
@@ -397,12 +423,16 @@ class TycoonApp {
     }
   }
 
-  renderGameState() {
-    const g = this.game;
-    const state = g.getState();
-    const localPlayer = g.players[this.localPlayerIndex];
-    const hand = g.getLocalHand();
+  // ---- Render ----
 
+  renderGameState() {
+    const g           = this.game;
+    const state       = g.getState();
+    const localPlayer = g.players[this.localPlayerIndex];
+    const hand        = g.getLocalHand();
+    const isMyTurn    = g.isPlayerTurn(this.localId);
+
+    // Round display
     const rdEl = document.getElementById('display-round');
     if (rdEl) rdEl.textContent = g.round;
 
@@ -411,15 +441,20 @@ class TycoonApp {
     UI.renderOpponents(state.players, this.localPlayerIndex, g.currentTurn, g.revolutionActive);
     UI.renderPile(g.pile, g.currentPlay);
     UI.renderRevolution(g.revolutionActive);
-    UI.renderTimer(g.turnTimer);
 
-    const isMyTurn = g.isPlayerTurn(this.localId);
+    // Timer: host reads directly from game; guests read from _lastKnownTimer
+    UI.renderTimer(this.isHost ? g.turnTimer : this._lastKnownTimer);
+
+    // Playable cards:
+    //   - My turn:     compute the actual playable set
+    //   - Not my turn: empty Set → all cards render as dimmed/unplayable
     const playableIds = isMyTurn
       ? Cards.getPlayableCards(hand, g.currentPlay, g.revolutionActive)
-      : null;
+      : new Set();
 
     UI.renderHand(hand, this.selectedCards, playableIds, (card) => this.toggleCard(card), g.revolutionActive);
 
+    // Action buttons
     const playBtn = document.getElementById('btn-play');
     const passBtn = document.getElementById('btn-pass');
     const selInfo = document.getElementById('selected-info');
@@ -446,10 +481,8 @@ class TycoonApp {
   toggleCard(card) {
     const g = this.game;
     if (!g.isPlayerTurn(this.localId)) return;
-
     const playableIds = Cards.getPlayableCards(g.getLocalHand(), g.currentPlay, g.revolutionActive);
     if (!playableIds.has(card.id)) return;
-
     if (this.selectedCards.has(card.id)) {
       this.selectedCards.delete(card.id);
     } else {
@@ -464,7 +497,6 @@ class TycoonApp {
     if (this.selectedCards.size === 0) return;
     const hand  = this.game.getLocalHand();
     const cards = [...this.selectedCards].map(id => hand.find(c => c.id === id)).filter(Boolean);
-
     this.net.sendToHost({ type: 'play_cards', cards });
     this.selectedCards.clear();
     this.renderGameState();
@@ -483,7 +515,6 @@ class TycoonApp {
   renderExchangeScreen() {
     const g = this.game;
     const exchangeInfo = g.getExchangeInfo();
-
     if (!exchangeInfo) {
       document.getElementById('exchange-title').textContent = 'WAITING...';
       document.getElementById('exchange-desc').textContent = 'Waiting for other players to exchange cards...';
@@ -491,7 +522,6 @@ class TycoonApp {
       document.getElementById('btn-confirm-exchange').disabled = true;
       return;
     }
-
     this.pendingExchange = exchangeInfo;
     UI.renderExchange(
       exchangeInfo,
