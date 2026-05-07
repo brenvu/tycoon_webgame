@@ -19,6 +19,7 @@ class TycoonApp {
     this._lastKnownTimer = 90;
     this._receivedModalShown = false;
     this._exchangeSubmitted = false;
+    this._lastSeenLogCount = 0;
 
     this.game.onStateChange = (state) => this.onGameStateChange(state);
     this.game.onActionLog = (msg) => UI.addLogEntry(msg);
@@ -287,7 +288,12 @@ class TycoonApp {
           exchangePending:  this.game.exchangePending,
           exchangesDone:    [...this.game.exchangesDone],
           // Only send this player's own new exchange hand
-          exchangeNewHand:  this.game.exchangeNewHands[guestId] || null
+          exchangeNewHand:  this.game.exchangeNewHands[guestId] || null,
+          // Log messages for guest event feed
+          recentLogs: this.game.recentLogs ? [...this.game.recentLogs] : [],
+          // Cards this guest received (isNew flag) for modal
+          receivedCardIds: (this.game.players[guestIdx]?.hand || [])
+            .filter(c => c.isNew).map(c => c.id)
         }
       };
     });
@@ -389,6 +395,25 @@ class TycoonApp {
 
     if (g.phase === 'playing' && (g.currentTurn !== prevTurn || Math.abs(g.turnTimer - prevTimer) > 2)) {
       this._startClientTimer(g.turnTimer);
+    }
+
+    // Replay new log entries for guests
+    if (state.recentLogs && Array.isArray(state.recentLogs)) {
+      const lastSeen = this._lastSeenLogCount || 0;
+      const newLogs = state.recentLogs.slice(lastSeen);
+      newLogs.forEach(msg => UI.addLogEntry(msg));
+      this._lastSeenLogCount = state.recentLogs.length;
+      // Reset counter when logs are cleared (new round resets recentLogs)
+      if (state.recentLogs.length < lastSeen) this._lastSeenLogCount = state.recentLogs.length;
+    }
+
+    // Mark received cards for guest modal
+    if (state.receivedCardIds && state.receivedCardIds.length > 0) {
+      const hand = g.players[this.localPlayerIndex]?.hand || [];
+      state.receivedCardIds.forEach(id => {
+        const card = hand.find(c => c.id === id);
+        if (card) card.isNew = true;
+      });
     }
 
     this.renderGameState();

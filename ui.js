@@ -203,13 +203,16 @@ const UI = {
       info.appendChild(rankEl);
       info.appendChild(cardsEl);
 
-      // Mini face-down cards display
+      // Mini face-down cards — tighter red-themed stack
       const miniCards = document.createElement('div');
       miniCards.className = 'opponent-mini-cards';
-      const count = Math.min(player.handCount || 0, 10);
-      for (let i = 0; i < count; i++) {
+      const cardCount = player.handCount || 0;
+      // Show up to 13 "pips", each representing 1+ cards
+      const visCount = Math.min(cardCount, 13);
+      for (let i = 0; i < visCount; i++) {
         const c = this.createCardEl(null, { faceDown: true, small: true });
-        c.style.marginLeft = i > 0 ? '-18px' : '0';
+        c.style.marginLeft = i > 0 ? '-14px' : '0';
+        c.style.zIndex = String(i);
         miniCards.appendChild(c);
       }
 
@@ -282,12 +285,19 @@ const UI = {
   renderTimer(seconds) {
     const bar = document.getElementById('timer-bar');
     const text = document.getElementById('timer-text');
-    if (!bar || !text) return;
+    const centerNum = document.getElementById('timer-center-num');
+    if (!bar) return;
     const pct = (seconds / 90) * 100;
     bar.style.width = `${pct}%`;
-    text.textContent = seconds;
+    if (text) text.textContent = seconds;
 
     bar.className = 'timer-bar';
+    if (centerNum) {
+      centerNum.textContent = seconds > 0 ? seconds : '—';
+      centerNum.className = 'timer-center-num';
+      if (seconds <= 10 && seconds > 0) centerNum.classList.add('timer-crit');
+      else if (seconds <= 30) centerNum.classList.add('timer-warn');
+    }
     if (seconds <= 10) bar.classList.add('timer-critical');
     else if (seconds <= 30) bar.classList.add('timer-warning');
   },
@@ -340,8 +350,11 @@ const UI = {
     entry.innerHTML = `<span class="feed-icon">${icon}</span><span class="feed-text">${html}</span>`;
     feed.insertBefore(entry, feed.firstChild);
 
-    // Cap at 30 entries
-    while (feed.children.length > 30) feed.removeChild(feed.lastChild);
+    // Remove entry from DOM after 5s (matches CSS animation)
+    setTimeout(() => { if (entry.parentNode) entry.parentNode.removeChild(entry); }, 5000);
+
+    // Cap at 15 simultaneous entries
+    while (feed.children.length > 15) feed.removeChild(feed.lastChild);
   },
 
   // ---- Waiting Room ----

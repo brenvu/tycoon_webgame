@@ -543,7 +543,7 @@ select option { background: #1a1a1f; }
   background: var(--p5-panel);
   border: 1px solid var(--p5-panel-border);
   min-width: 120px;
-  max-width: 180px;
+  max-width: 160px;
   position: relative;
   transition: border-color 0.3s, box-shadow 0.3s;
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
@@ -557,10 +557,11 @@ select option { background: #1a1a1f; }
 .opponent-panel.player-finished { opacity: 0.5; }
 
 .opponent-avatar {
-  width: 52px; height: 52px;
+  width: 72px; height: 72px;
   border: 2px solid var(--p5-panel-border);
   overflow: hidden;
   border-radius: 2px;
+  flex-shrink: 0;
 }
 
 .opponent-avatar img { width: 100%; height: 100%; object-fit: cover; }
@@ -569,7 +570,7 @@ select option { background: #1a1a1f; }
   display: flex; align-items: center; justify-content: center;
   background: var(--p5-red);
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: 28px;
   color: white;
 }
 
@@ -609,8 +610,16 @@ select option { background: #1a1a1f; }
   display: flex;
   justify-content: center;
   margin-top: 4px;
-  height: 28px;
-  overflow: hidden;
+  height: 24px;
+  overflow: visible;
+  position: relative;
+}
+
+.opponent-mini-cards .card-small {
+  border-color: rgba(232, 0, 28, 0.7) !important;
+  background-color: rgba(60, 5, 10, 0.9) !important;
+  background-image: none !important;
+  flex-shrink: 0;
 }
 
 .active-turn-indicator {
@@ -764,7 +773,7 @@ select option { background: #1a1a1f; }
 }
 
 .local-avatar-wrap {
-  width: 48px; height: 48px;
+  width: 64px; height: 64px;
   border: 2px solid var(--p5-red);
   overflow: hidden;
   flex-shrink: 0;
@@ -776,7 +785,7 @@ select option { background: #1a1a1f; }
   display: flex; align-items: center; justify-content: center;
   background: var(--p5-red);
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 28px;
 }
 
 .local-player-details { flex: 1; }
@@ -906,11 +915,27 @@ select option { background: #1a1a1f; }
   color: white;
 }
 
-/* Action buttons */
+/* Action buttons — centered: PASS | timer-num | PLAY CARDS */
 .action-buttons {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  gap: 16px;
+}
+
+.timer-center-num {
+  font-family: var(--font-display);
+  font-size: 32px;
+  color: var(--p5-white);
+  min-width: 52px;
+  text-align: center;
+  line-height: 1;
+}
+.timer-center-num.timer-warn { color: #ff8c00; }
+.timer-center-num.timer-crit { color: #ff2200; animation: timerBlink 0.3s ease-in-out infinite alternate; }
+
+.selected-info {
+  display: none; /* hidden — info now in feed */
 }
 
 /* Exchange banner — inline on game screen */
@@ -956,22 +981,22 @@ select option { background: #1a1a1f; }
 }
 
 /* ============================================================
-   EVENT FEED (left-side Pokémon Showdown style)
+   EVENT FEED — left column of play area, auto-disappearing entries
    ============================================================ */
 
 .event-feed {
-  position: fixed;
-  left: 0;
-  top: 50px; /* below topbar */
-  bottom: 0;
-  width: 240px;
-  padding: 8px 0;
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  bottom: 8px;
+  width: 220px;
   display: flex;
   flex-direction: column-reverse; /* newest at bottom */
-  gap: 2px;
+  justify-content: flex-end;
+  gap: 3px;
   overflow: hidden;
   pointer-events: none;
-  z-index: 50;
+  z-index: 10;
 }
 
 .feed-entry {
@@ -979,20 +1004,25 @@ select option { background: #1a1a1f; }
   align-items: flex-start;
   gap: 6px;
   padding: 5px 10px 5px 8px;
-  margin: 0 4px;
+  margin: 0 2px;
   border-left: 3px solid transparent;
-  background: rgba(8, 4, 12, 0.88);
+  background: rgba(8, 4, 12, 0.9);
   font-size: 11px;
   letter-spacing: 0.3px;
   line-height: 1.4;
-  color: rgba(255,255,255,0.75);
-  animation: feedSlideIn 0.25s ease;
+  color: rgba(255,255,255,0.82);
+  animation: feedIn 0.2s ease forwards, feedOut 0.6s ease 4.4s forwards;
   flex-shrink: 0;
 }
 
-@keyframes feedSlideIn {
-  from { opacity: 0; transform: translateX(-12px); }
+@keyframes feedIn {
+  from { opacity: 0; transform: translateX(-10px); }
   to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes feedOut {
+  from { opacity: 1; max-height: 60px; margin-bottom: 0; }
+  to   { opacity: 0; max-height: 0; margin-bottom: -3px; padding-top: 0; padding-bottom: 0; }
 }
 
 .feed-entry .feed-icon {

@@ -43,6 +43,7 @@ class TycoonGame {
     this.onRoundEnd = null;
     this.onGameOver = null;
     this.onActionLog = null;
+    this.recentLogs = []; // last N log messages for broadcasting to guests
     this.previousTycoon = -1;
     this.tycoonBankruptCheck = false;
   }
@@ -70,6 +71,7 @@ class TycoonGame {
     this.passCount = 0;
     this.revolutionActive = false;
     this.finishOrder = [];
+    this.recentLogs = []; // clear log buffer each round
 
     // Only deal new cards if hands weren't already set by exchange
     const handsAlreadyDealt = this.players.every(p => p.hand && p.hand.length > 0);
@@ -486,6 +488,9 @@ class TycoonGame {
 
   _log(msg) {
     if (this.onActionLog) this.onActionLog(msg);
+    // Keep a rolling buffer of recent logs for broadcasting
+    this.recentLogs.push(msg);
+    if (this.recentLogs.length > 10) this.recentLogs.shift();
   }
 
   _notify() {
@@ -517,6 +522,7 @@ class TycoonGame {
       exchangePending: this.exchangePending,
       exchangesDone: [...this.exchangesDone],
       exchangeNewHands: this.exchangeNewHands,
+      recentLogs: [...this.recentLogs],
       localPlayerIndex: this.localPlayerIndex
     };
   }
