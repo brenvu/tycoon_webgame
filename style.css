@@ -958,11 +958,12 @@ select option { background: #1a1a1f; }
 .exchange-panel {
   background: var(--p5-panel);
   border: 2px solid var(--p5-red);
-  padding: 32px;
+  padding: 32px 32px 24px;
   max-width: min(95vw, 1100px);
   width: 95%;
   max-height: 90vh;
   overflow-y: auto;
+  overflow-x: hidden;
   clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
   display: flex;
   flex-direction: column;
@@ -989,10 +990,16 @@ select option { background: #1a1a1f; }
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 12px;
-  min-height: 170px;
+  gap: 8px;
+  padding: 16px 12px 32px;
+  min-height: 200px;
   width: 100%;
+}
+
+/* Override card overlap margin inside exchange panel */
+.exchange-hand .card-el {
+  margin-left: 0 !important;
+  cursor: pointer;
 }
 
 .exchange-selected-info {

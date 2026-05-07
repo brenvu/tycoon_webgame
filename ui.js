@@ -399,7 +399,8 @@ const UI = {
     }
 
     handEl.innerHTML = '';
-    const sortedHand = Cards.sortHand(playerHand, revolutionActive);
+    // Revolution is always reset before exchange, so always sort with false
+    const sortedHand = Cards.sortHand(playerHand, false);
 
     // For mustGiveBest: top N are required (pre-selected, locked in)
     let autoSelected = null;
@@ -412,9 +413,9 @@ const UI = {
       let isSelected, isPlayable;
 
       if (mustGiveBest) {
-        // Required cards are pre-selected and visually raised; others are grayed out
+        // Required cards are pre-selected and visually raised; others are shown normally (dimmed slightly)
         isSelected = autoSelected.has(card.id);
-        isPlayable = isSelected; // Only the pre-selected ones are "available" looking
+        isPlayable = true; // Show all cards — don't hide non-selected ones
       } else {
         // Tycoon/Rich: all cards are clickable/available
         isSelected = selectedIds.has(card.id);
@@ -423,15 +424,18 @@ const UI = {
 
       const el = this.createCardEl(card, { selected: isSelected, playable: isPlayable });
 
-      if (isSelected) el.style.transform = 'translateY(-14px)';
+      if (mustGiveBest && !isSelected) {
+        // Dim non-selected cards slightly to indicate they're locked
+        el.style.opacity = '0.55';
+        el.style.cursor = 'not-allowed';
+      } else if (mustGiveBest && isSelected) {
+        el.style.cursor = 'default';
+      }
 
       if (!mustGiveBest) {
         // Tycoon/Rich can click any card
         el.style.cursor = 'pointer';
         el.addEventListener('click', () => onToggle(card));
-      } else {
-        // Beggar/Commoner: cards are locked, show cursor not-allowed on grayed cards
-        el.style.cursor = isSelected ? 'default' : 'not-allowed';
       }
 
       handEl.appendChild(el);
@@ -443,7 +447,8 @@ const UI = {
       confirmBtn.disabled = numSelected !== required;
       confirmBtn.onclick = () => {
         if (mustGiveBest) {
-          const topN = Cards.sortHand(playerHand, revolutionActive).slice(-required);
+          // Revolution is always false during exchange; sort ascending and take top N
+          const topN = Cards.sortHand(playerHand, false).slice(-required);
           onConfirm(topN);
         } else {
           onConfirm([...selectedIds].map(id => playerHand.find(c => c.id === id)).filter(Boolean));
