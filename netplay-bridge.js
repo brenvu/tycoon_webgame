@@ -11,7 +11,7 @@
 // Host peer ID: "tycoon-" + code            e.g. "tycoon-K7X2MP"
 // ============================================================
 
-const PEER_ID_PREFIX = 'tycoon-';
+const PEER_ID_PREFIX = 'tycoon-room-';
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I/O/1/0
 
 function generateRoomCode() {
