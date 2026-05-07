@@ -7,8 +7,8 @@
 // We attempt to load a manifest, then fall back to known files
 
 const KNOWN_AVATARS = [
-  'Ren_Amamiya.png'
-  // Add more as you commit avatar images to the /avatars/ folder
+  'Ren Amamiya.png'
+  // Add more avatar image files to the /avatars/ folder
 ];
 
 class TycoonApp {
@@ -165,8 +165,12 @@ class TycoonApp {
 
   async joinGame() {
     this.saveProfile();
-    const code = document.getElementById('input-room-code').value.trim().toUpperCase();
-    if (!code || code.length < 4) { this.showError('Enter a valid room code.'); return; }
+    const raw = document.getElementById('input-room-code').value.trim();
+    const normalized = raw.replace(/[-\s]/g, '');
+    if (!normalized || normalized.length !== 22) {
+      this.showError('Enter the full 22-character room code (paste it from the host).');
+      return;
+    }
     if (!this.playerInfo.nickname) { this.showError('Please enter a nickname.'); return; }
 
     const joinBtn = document.getElementById('btn-join');
@@ -177,7 +181,7 @@ class TycoonApp {
     this.isHost = false;
 
     this.net.onJoinSuccess = () => {
-      document.getElementById('display-room-code').textContent = code;
+      document.getElementById('display-room-code').textContent = raw.toUpperCase();
       document.getElementById('waiting-room').classList.remove('hidden');
       joinBtn.textContent = 'JOIN ROOM';
       joinBtn.disabled = false;
@@ -205,7 +209,7 @@ class TycoonApp {
     };
 
     try {
-      await this.net.join(code, this.playerInfo);
+      await this.net.join(normalized, this.playerInfo);
       this.localId = this.net.getLocalId();
     } catch(e) {
       joinBtn.textContent = 'JOIN ROOM';
@@ -219,11 +223,16 @@ class TycoonApp {
   }
 
   copyRoomCode() {
-    const code = document.getElementById('display-room-code').textContent;
-    navigator.clipboard.writeText(code).then(() => {
-      UI.showToast('Room code copied!');
+    const displayed = document.getElementById('display-room-code').textContent;
+    // Copy clean version (no dashes) so it works when pasted into the join field
+    const clean = displayed.replace(/[-\s]/g, '');
+    navigator.clipboard.writeText(clean).then(() => {
+      UI.showToast('Room code copied! Share it with friends.');
+      document.getElementById('btn-copy-code').textContent = '✓ Copied';
+      setTimeout(() => { document.getElementById('btn-copy-code').textContent = '⧉ Copy'; }, 2000);
     }).catch(() => {
-      UI.showToast(`Room code: ${code}`);
+      // Fallback: select the text
+      UI.showToast(`Code: ${displayed}`);
     });
   }
 
@@ -610,12 +619,12 @@ class TycoonApp {
 }
 
 // ---- Boot ----
-window.addEventListener('load', () => {
-  // Directly initialize because PeerJS is already loaded in index.html
-  if (typeof Peer !== 'undefined') {
-    window.app = new TycoonApp();
-  } else {
-    console.error("PeerJS failed to load. Check your internet connection or script tags.");
-    UI.showToast("Network Error: Could not load PeerJS", 5000);
+window.addEventListener('DOMContentLoaded', () => {
+  // PeerJS is loaded synchronously in <head> of index.html
+  // Verify it loaded correctly
+  if (typeof Peer === 'undefined') {
+    document.body.innerHTML = '<div style="color:red;font-size:2em;padding:2em">ERROR: PeerJS failed to load. Check your internet connection and reload.</div>';
+    return;
   }
+  window.app = new TycoonApp();
 });

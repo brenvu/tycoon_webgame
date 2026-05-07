@@ -7,11 +7,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;600;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<!-- PeerJS loaded BEFORE game scripts so Peer is available -->
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+<!-- LOBBY SCREEN -->
 <div id="screen-lobby" class="screen active">
   <div class="lobby-bg"></div>
   <div class="lobby-content">
@@ -21,6 +23,7 @@
     </div>
 
     <div class="lobby-panel">
+      <!-- Profile Setup -->
       <div class="profile-setup">
         <h2 class="panel-title">YOUR PROFILE</h2>
         <div class="input-group">
@@ -31,7 +34,7 @@
           <label>AVATAR</label>
           <div class="avatar-select-wrapper">
             <div class="avatar-preview-box">
-              <img id="avatar-preview-img" src="" alt="">
+              <img id="avatar-preview-img" src="" alt="" style="display:none">
               <span id="avatar-preview-none">?</span>
             </div>
             <select id="select-avatar">
@@ -43,6 +46,7 @@
 
       <div class="lobby-divider"></div>
 
+      <!-- Host or Join -->
       <div class="lobby-actions">
         <div class="action-col">
           <h3>HOST A GAME</h3>
@@ -51,20 +55,22 @@
         <div class="action-or">OR</div>
         <div class="action-col">
           <h3>JOIN A GAME</h3>
-          <input type="text" id="input-room-code" maxlength="6" placeholder="ROOM CODE" class="code-input">
+          <input type="text" id="input-room-code" maxlength="27" placeholder="PASTE ROOM CODE" class="code-input" autocomplete="off" autocorrect="off" spellcheck="false">
           <button class="btn-secondary" id="btn-join">JOIN ROOM</button>
         </div>
       </div>
     </div>
 
+    <!-- Waiting Room -->
     <div id="waiting-room" class="waiting-room hidden">
       <div class="room-code-display">
         <span class="rc-label">ROOM CODE</span>
-        <span class="rc-code" id="display-room-code">------</span>
-        <button class="btn-copy" id="btn-copy-code" title="Copy code">⧉</button>
+        <span class="rc-code" id="display-room-code">——</span>
+        <button class="btn-copy" id="btn-copy-code" title="Copy code to clipboard">⧉ Copy</button>
       </div>
+      <div class="room-code-hint" id="room-code-hint">Share this code with up to 3 friends so they can join.</div>
       <div class="waiting-players" id="waiting-players-list"></div>
-      <div class="waiting-status" id="waiting-status">Waiting for players... (2-4 players needed)</div>
+      <div class="waiting-status" id="waiting-status">Waiting for players… (need at least 2)</div>
       <button class="btn-primary" id="btn-start-game" style="display:none">START GAME</button>
     </div>
 
@@ -72,6 +78,7 @@
   </div>
 </div>
 
+<!-- CARD EXCHANGE SCREEN (between rounds) -->
 <div id="screen-exchange" class="screen hidden">
   <div class="exchange-overlay">
     <div class="exchange-panel">
@@ -84,8 +91,11 @@
   </div>
 </div>
 
+<!-- GAME SCREEN -->
 <div id="screen-game" class="screen hidden">
   <div class="game-layout">
+
+    <!-- Top bar -->
     <div class="game-topbar">
       <div class="topbar-left">
         <span class="round-label">ROUND</span>
@@ -100,8 +110,10 @@
       </div>
     </div>
 
+    <!-- Opponents area (top 3 players) -->
     <div class="opponents-area" id="opponents-area"></div>
 
+    <!-- Center play area -->
     <div class="play-area">
       <div class="card-pile" id="card-pile">
         <div class="pile-empty-msg" id="pile-empty">Play starts here</div>
@@ -109,13 +121,16 @@
       <div class="pile-info" id="pile-info"></div>
     </div>
 
+    <!-- Turn timer -->
     <div class="timer-bar-wrap">
       <div class="timer-bar" id="timer-bar"></div>
       <div class="timer-text" id="timer-text">90</div>
     </div>
 
+    <!-- Action log -->
     <div class="action-log" id="action-log"></div>
 
+    <!-- Local player area -->
     <div class="local-player-area">
       <div class="local-player-info">
         <div class="local-avatar-wrap">
@@ -128,18 +143,22 @@
           <div class="local-cards-left">Cards: <span id="local-cards-count">0</span></div>
         </div>
       </div>
+
       <div class="hand-area">
         <div class="hand-cards" id="hand-cards"></div>
       </div>
+
       <div class="action-buttons">
         <button class="btn-action btn-play" id="btn-play" disabled>PLAY CARDS</button>
         <button class="btn-action btn-pass" id="btn-pass" disabled>PASS</button>
         <div class="selected-info" id="selected-info">Select cards to play</div>
       </div>
     </div>
+
   </div>
 </div>
 
+<!-- ROUND END SCREEN -->
 <div id="screen-round-end" class="screen hidden">
   <div class="round-end-overlay">
     <div class="round-end-panel">
@@ -150,6 +169,7 @@
   </div>
 </div>
 
+<!-- GAME OVER SCREEN -->
 <div id="screen-gameover" class="screen hidden">
   <div class="gameover-overlay">
     <div class="gameover-panel">
@@ -160,6 +180,7 @@
   </div>
 </div>
 
+<!-- Notification toast -->
 <div id="toast" class="toast hidden"></div>
 
 <script src="cards.js"></script>

@@ -1,208 +1,234 @@
 // ============================================================
-// TYCOON — NetplayJS P2P Bridge
-// Handles room creation, joining, and state sync via WebRTC
+// TYCOON — P2P Network Bridge (PeerJS)
+// Room code = base-58 encoded PeerJS UUID — no KV store needed.
+// Works on GitHub Pages and itch.io with zero server config.
 // ============================================================
 
-// Since NetplayJS is primarily designed for deterministic rollback netcode,
-// we'll use a simpler PeerJS-style WebRTC signaling approach that works on
-// GitHub Pages / itch.io with no server required.
-// We use a public STUN server + a free signaling server.
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+function uuidToRoomCode(uuid) {
+  const hex = uuid.replace(/-/g, '');
+  let n = BigInt('0x' + hex);
+  const base = BigInt(58);
+  let encoded = '';
+  while (n > 0n) {
+    encoded = BASE58_ALPHABET[Number(n % base)] + encoded;
+    n = n / base;
+  }
+  while (encoded.length < 22) encoded = '1' + encoded;
+  return encoded;
+}
+
+function roomCodeToUUID(code) {
+  let n = 0n;
+  const base = BigInt(58);
+  for (const ch of code) {
+    const val = BASE58_ALPHABET.indexOf(ch);
+    if (val === -1) return null;
+    n = n * base + BigInt(val);
+  }
+  const hex = n.toString(16).padStart(32, '0');
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`;
+}
+
+function isValidUUID(str) {
+  return str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+}
+
+// Format 22-char code as groups for display/copy
+function formatCode(code) {
+  // Split as: XXXX-XXXX-XXXX-XXXX-XXXXXX  (4-4-4-4-6)
+  return code.slice(0,4) + '-' + code.slice(4,8) + '-' + code.slice(8,12) + '-' + code.slice(12,16) + '-' + code.slice(16,22);
+}
+
+function parseEnteredCode(entered) {
+  return entered.replace(/[-\s]/g, '').trim();
+}
+
+// ============================================================
 
 class TycoonNetwork {
   constructor() {
     this.peer = null;
-    this.connections = []; // DataConnection[]
-    this.roomCode = null;
+    this.connections = [];
+    this.fullCode = null;
+    this.displayCode = null;
     this.isHost = false;
     this.localId = null;
-    this.playerInfo = null; // {nickname, avatar}
+    this.playerInfo = null;
 
-    // Callbacks
-    this.onPlayerJoined = null;    // (playerInfo, connIdx)
-    this.onPlayerLeft = null;      // (playerId)
-    this.onGameAction = null;      // (action)
-    this.onRoomReady = null;       // (roomCode)
-    this.onJoinSuccess = null;     // ()
-    this.onError = null;           // (msg)
-    this.onConnectionChange = null;// ()
+    this.onPlayerJoined     = null;
+    this.onPlayerLeft       = null;
+    this.onGameAction       = null;
+    this.onRoomReady        = null;
+    this.onJoinSuccess      = null;
+    this.onError            = null;
+    this.onConnectionChange = null;
 
-    this.allPlayers = []; // [{id, nickname, avatar, isHost}]
+    this.allPlayers = [];
     this.MAX_PLAYERS = 4;
   }
 
-  // ---- Peer Setup ----
-
-  init(playerInfo) {
-    this.playerInfo = playerInfo;
+  _initPeer() {
     return new Promise((resolve, reject) => {
-      // Use PeerJS CDN-hosted server (free, public broker)
-      this.peer = new Peer(undefined, {
-        host: '0.peerjs.com',
-        port: 443,
-        path: '/',
-        secure: true,
+      const opts = {
+        debug: 0,
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478' }
           ]
-        },
-        debug: 0
-      });
+        }
+      };
 
-      this.peer.on('open', (id) => {
+      try {
+        this.peer = new Peer(opts);
+      } catch(e) {
+        reject(new Error('PeerJS not loaded. Check your internet connection.'));
+        return;
+      }
+
+      const timer = setTimeout(() => {
+        reject(new Error('Signaling server timeout. Check your connection.'));
+      }, 15000);
+
+      this.peer.on('open', id => {
+        clearTimeout(timer);
         this.localId = id;
-        console.log('[Net] Peer ID:', id);
+        console.log('[Net] Peer open:', id);
         resolve(id);
       });
 
-      this.peer.on('error', (err) => {
-        console.error('[Net] Peer error:', err);
-        const msg = this._friendlyError(err);
-        if (this.onError) this.onError(msg);
+      this.peer.on('error', err => {
+        clearTimeout(timer);
+        console.error('[Net] Error:', err.type, err.message);
+        if (this.onError) this.onError(this._friendlyError(err));
         reject(err);
       });
 
-      this.peer.on('connection', (conn) => {
-        if (!this.isHost) return;
-        this._handleIncomingConnection(conn);
+      this.peer.on('connection', conn => {
+        if (this.isHost) this._handleIncoming(conn);
       });
 
       this.peer.on('disconnected', () => {
-        console.warn('[Net] Peer disconnected from server, attempting reconnect...');
-        setTimeout(() => { try { this.peer.reconnect(); } catch(e) {} }, 2000);
+        console.warn('[Net] Disconnected from broker, reconnecting...');
+        setTimeout(() => { try { this.peer.reconnect(); } catch(e) {} }, 3000);
       });
     });
   }
-
-  // ---- HOST ----
 
   async host(playerInfo) {
-    await this.init(playerInfo);
+    this.playerInfo = playerInfo;
     this.isHost = true;
-    this.roomCode = this._generateRoomCode();
 
-    // Register room code via peer ID stored in a shared "room registry"
-    // We use a lightweight approach: the room code IS a shortened version of
-    // the host's peer ID stored in a free keyvalue store (jsonbin or kvdb)
-    // For maximum compatibility (GitHub Pages / itch.io), we use a free
-    // CORS-enabled key-value API.
+    const peerId = await this._initPeer();
+    this.fullCode = uuidToRoomCode(peerId);
+    this.displayCode = formatCode(this.fullCode);
 
-    await this._registerRoom(this.roomCode, this.localId);
+    this.allPlayers = [{ id: peerId, nickname: playerInfo.nickname, avatar: playerInfo.avatar, isHost: true }];
 
-    // Add host to player list
-    this.allPlayers = [{
-      id: this.localId,
-      nickname: playerInfo.nickname,
-      avatar: playerInfo.avatar,
-      isHost: true
-    }];
+    console.log('[Net] Room code:', this.displayCode);
 
-    if (this.onRoomReady) this.onRoomReady(this.roomCode);
+    if (this.onRoomReady) this.onRoomReady(this.displayCode);
     if (this.onConnectionChange) this.onConnectionChange();
-
-    return this.roomCode;
+    return this.displayCode;
   }
 
-  // ---- JOIN ----
-
-  async join(roomCode, playerInfo) {
-    await this.init(playerInfo);
+  async join(enteredCode, playerInfo) {
+    this.playerInfo = playerInfo;
     this.isHost = false;
-    this.roomCode = roomCode.toUpperCase();
 
-    // Look up host peer ID from room code
-    const hostPeerId = await this._lookupRoom(this.roomCode);
-    if (!hostPeerId) {
-      if (this.onError) this.onError(`Room "${roomCode}" not found. Check the code and try again.`);
-      return;
+    const raw = parseEnteredCode(enteredCode);
+    if (raw.length !== 22) {
+      if (this.onError) this.onError('Room code must be 22 characters (use the full code from the host).');
+      throw new Error('bad code length');
     }
 
-    const conn = this.peer.connect(hostPeerId, {
-      reliable: true,
-      serialization: 'json'
-    });
+    const hostPeerId = roomCodeToUUID(raw);
+    if (!isValidUUID(hostPeerId)) {
+      if (this.onError) this.onError('Invalid room code. Copy the full code from the host.');
+      throw new Error('bad uuid');
+    }
 
-    conn.on('open', () => {
-      console.log('[Net] Connected to host');
-      this.connections.push(conn);
-      this._setupConn(conn);
-      // Send join info
-      this._send(conn, {
-        type: 'join',
-        player: {
-          id: this.localId,
-          nickname: playerInfo.nickname,
-          avatar: playerInfo.avatar,
-          isHost: false
-        }
+    console.log('[Net] Joining peer:', hostPeerId);
+    await this._initPeer();
+
+    return new Promise((resolve, reject) => {
+      const conn = this.peer.connect(hostPeerId, { reliable: true, serialization: 'json' });
+
+      const timer = setTimeout(() => {
+        if (this.onError) this.onError('Could not reach host. Room may be closed or invalid.');
+        try { conn.close(); } catch(e) {}
+        reject(new Error('timeout'));
+      }, 15000);
+
+      conn.on('open', () => {
+        clearTimeout(timer);
+        console.log('[Net] Connected to host');
+        this.connections.push(conn);
+        this._setupConn(conn);
+        this._send(conn, {
+          type: 'join',
+          player: { id: this.localId, nickname: playerInfo.nickname, avatar: playerInfo.avatar, isHost: false }
+        });
+        resolve();
       });
-    });
 
-    conn.on('error', (err) => {
-      if (this.onError) this.onError(`Connection error: ${err.message}`);
+      conn.on('error', err => {
+        clearTimeout(timer);
+        if (this.onError) this.onError(`Connection failed: ${err.message || err.type}`);
+        reject(err);
+      });
     });
   }
 
-  // ---- Incoming connection (host side) ----
-
-  _handleIncomingConnection(conn) {
+  _handleIncoming(conn) {
     if (this.allPlayers.length >= this.MAX_PLAYERS) {
-      // Reject
       conn.on('open', () => {
-        this._send(conn, { type: 'rejected', reason: 'Room is full.' });
-        setTimeout(() => conn.close(), 500);
+        this._send(conn, { type: 'rejected', reason: 'Room is full (4/4 players).' });
+        setTimeout(() => conn.close(), 800);
       });
       return;
     }
-
     conn.on('open', () => {
-      console.log('[Net] New connection:', conn.peer);
+      console.log('[Net] Incoming:', conn.peer);
       this.connections.push(conn);
       this._setupConn(conn);
     });
-
-    conn.on('error', (err) => {
-      console.error('[Net] Connection error:', err);
-    });
+    conn.on('error', err => console.error('[Net] Incoming error:', err));
   }
 
   _setupConn(conn) {
-    conn.on('data', (data) => {
-      this._handleMessage(conn, data);
-    });
-
+    conn.on('data', data => this._handleMsg(conn, data));
     conn.on('close', () => {
-      const idx = this.connections.indexOf(conn);
-      if (idx !== -1) this.connections.splice(idx, 1);
+      this.connections = this.connections.filter(c => c !== conn);
       const player = this.allPlayers.find(p => p.id === conn.peer);
       if (player) {
         this.allPlayers = this.allPlayers.filter(p => p.id !== conn.peer);
+        if (this.isHost) {
+          this.connections.forEach(c => {
+            if (c.open) this._send(c, { type: 'player_left', playerId: conn.peer });
+          });
+        }
         if (this.onPlayerLeft) this.onPlayerLeft(conn.peer);
         if (this.onConnectionChange) this.onConnectionChange();
       }
     });
   }
 
-  // ---- Message Handling ----
-
-  _handleMessage(conn, data) {
-    console.log('[Net] Message:', data.type);
+  _handleMsg(conn, data) {
+    if (!data || !data.type) return;
+    console.log('[Net] Msg:', data.type, '| host:', this.isHost);
 
     if (this.isHost) {
-      switch (data.type) {
-        case 'join':
-          this._onGuestJoined(conn, data.player);
-          break;
-        case 'action':
-          // Host receives action from guest, validates + broadcasts
-          if (this.onGameAction) this.onGameAction(data.action, data.player?.id);
-          break;
+      if (data.type === 'join') this._onGuestJoined(conn, data.player);
+      else if (data.type === 'action') {
+        if (this.onGameAction) this.onGameAction(data.action, conn.peer);
       }
     } else {
       switch (data.type) {
         case 'welcome':
-          // Host confirms join, sends full player list
           this.allPlayers = data.players;
           if (this.onJoinSuccess) this.onJoinSuccess();
           if (this.onConnectionChange) this.onConnectionChange();
@@ -212,7 +238,7 @@ class TycoonNetwork {
           conn.close();
           break;
         case 'player_joined':
-          this.allPlayers.push(data.player);
+          if (!this.allPlayers.find(p => p.id === data.player.id)) this.allPlayers.push(data.player);
           if (this.onPlayerJoined) this.onPlayerJoined(data.player);
           if (this.onConnectionChange) this.onConnectionChange();
           break;
@@ -222,34 +248,27 @@ class TycoonNetwork {
           if (this.onConnectionChange) this.onConnectionChange();
           break;
         case 'state_sync':
-          // Full game state from host
           if (this.onGameAction) this.onGameAction({ type: 'state_sync', state: data.state }, 'host');
           break;
         case 'action':
-          // Broadcast action from host
-          if (this.onGameAction) this.onGameAction(data.action, data.playerId);
+          if (this.onGameAction) this.onGameAction(data.action, data.playerId || 'host');
           break;
       }
     }
   }
 
   _onGuestJoined(conn, player) {
+    if (this.allPlayers.find(p => p.id === player.id)) return;
     this.allPlayers.push(player);
     if (this.onPlayerJoined) this.onPlayerJoined(player);
     if (this.onConnectionChange) this.onConnectionChange();
 
-    // Tell the joiner they're welcome + full player list
     this._send(conn, { type: 'welcome', players: this.allPlayers });
 
-    // Tell all other guests about new player
     this.connections.forEach(c => {
-      if (c !== conn && c.open) {
-        this._send(c, { type: 'player_joined', player });
-      }
+      if (c !== conn && c.open) this._send(c, { type: 'player_joined', player });
     });
   }
-
-  // ---- Sending ----
 
   _send(conn, data) {
     if (conn && conn.open) {
@@ -257,47 +276,31 @@ class TycoonNetwork {
     }
   }
 
-  // Host broadcasts state to all guests
   broadcastState(state) {
     if (!this.isHost) return;
-    // Strip hand data — each player only gets their own hand
     this.connections.forEach(conn => {
-      const guestId = conn.peer;
-      const filteredState = this._filterStateForPlayer(state, guestId);
-      this._send(conn, { type: 'state_sync', state: filteredState });
+      const filtered = this._filterState(state, conn.peer);
+      this._send(conn, { type: 'state_sync', state: filtered });
     });
   }
 
-  // Host broadcasts an action result to all
-  broadcastAction(action, sourcePlayerId) {
-    this.connections.forEach(conn => {
-      this._send(conn, { type: 'action', action, playerId: sourcePlayerId });
-    });
+  broadcastAction(action, sourceId) {
+    this.connections.forEach(conn => this._send(conn, { type: 'action', action, playerId: sourceId }));
   }
 
-  // Guest sends action to host
   sendAction(action) {
     if (this.isHost) {
-      // Local, handle directly
       if (this.onGameAction) this.onGameAction(action, this.localId);
       return;
     }
-    const hostConn = this.connections[0];
-    if (hostConn) {
-      this._send(hostConn, {
-        type: 'action',
-        action,
-        player: { id: this.localId }
-      });
-    }
+    const host = this.connections[0];
+    if (host) this._send(host, { type: 'action', action, player: { id: this.localId } });
   }
 
-  _filterStateForPlayer(state, playerId) {
-    // Clone state, but replace other players' hands with just counts
+  _filterState(state, playerId) {
     const s = JSON.parse(JSON.stringify(state));
     s.players = s.players.map(p => {
-      if (p.id === playerId) return p; // keep full hand
-      // Remove hand, just keep count
+      if (p.id === playerId) return p;
       const { hand, ...rest } = p;
       return rest;
     });
@@ -312,77 +315,20 @@ class TycoonNetwork {
     this.allPlayers = [];
   }
 
-  // ---- Room Registry (free KV store) ----
-  // Uses kvdb.io — free, no auth, works from browser
-
-  _roomKey(code) {
-    return `tycoon_p5_room_${code}`;
-  }
-
-  async _registerRoom(code, peerId) {
-    try {
-      // Use a combination: store in localStorage + broadcast peer ID encoded in URL hash
-      // For real P2P across devices we need an actual relay. Use kvdb.io (free, public)
-      const url = `https://kvdb.io/9vbLMwXpQmPJZBPjLMmAWS/${this._roomKey(code)}`;
-      await fetch(url, {
-        method: 'PUT',
-        body: peerId,
-        headers: { 'Content-Type': 'text/plain' }
-      });
-      console.log('[Net] Room registered:', code, '->', peerId);
-    } catch (e) {
-      console.warn('[Net] Could not register room in KV store:', e);
-      // Fallback: encode peer ID in the URL so users can share the link
-      window.location.hash = `room=${code}&host=${btoa(peerId)}`;
-    }
-  }
-
-  async _lookupRoom(code) {
-    // Try URL hash first (for same-device testing)
-    const hash = window.location.hash;
-    if (hash.includes('host=')) {
-      const match = hash.match(/host=([^&]+)/);
-      if (match) {
-        try { return atob(match[1]); } catch(e) {}
-      }
-    }
-
-    // Try KV store
-    try {
-      const url = `https://kvdb.io/9vbLMwXpQmPJZBPjLMmAWS/${this._roomKey(code)}`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const peerId = await res.text();
-        if (peerId && peerId.length > 5) return peerId;
-      }
-    } catch(e) {
-      console.warn('[Net] KV lookup failed:', e);
-    }
-    return null;
-  }
-
-  // ---- Utils ----
-
-  _generateRoomCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = '';
-    for (let i = 0; i < 6; i++) {
-      code += chars[Math.floor(Math.random() * chars.length)];
-    }
-    return code;
-  }
-
   _friendlyError(err) {
-    if (err.type === 'peer-unavailable') return 'Could not connect to host. Room may be full or closed.';
-    if (err.type === 'network') return 'Network error. Check your connection.';
-    if (err.type === 'server-error') return 'Signaling server error. Try again.';
-    if (err.type === 'socket-error') return 'Socket error. Try again.';
-    return `Connection error: ${err.message || err.type}`;
+    const t = (err && err.type) || '';
+    if (t === 'peer-unavailable') return 'Cannot reach host. The room may be closed or the code is wrong.';
+    if (t === 'network') return 'Network error. Check your internet connection.';
+    if (t === 'server-error') return 'Signaling server error. Please try again.';
+    if (t === 'socket-error' || t === 'socket-closed') return 'Socket error. Please try again.';
+    if (t === 'unavailable-id') return 'Could not connect. Please try again.';
+    if (t === 'browser-incompatible') return 'Your browser does not support WebRTC. Use Chrome or Firefox.';
+    return `Connection error: ${(err && err.message) || t || 'unknown'}`;
   }
 
   getPlayerCount() { return this.allPlayers.length; }
-  getPlayers() { return this.allPlayers; }
-  getLocalId() { return this.localId; }
+  getPlayers()     { return this.allPlayers; }
+  getLocalId()     { return this.localId; }
 }
 
 window.TycoonNetwork = TycoonNetwork;

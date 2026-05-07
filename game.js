@@ -2,8 +2,8 @@
 // TYCOON — Core Game State Machine
 // ============================================================
 
-const RANKS_ORDER = ['commoner', 'rich', 'tycoon', 'poor', 'beggar'];
-const POINTS = { tycoon: 30, rich: 20, commoner: 10, poor: 0, beggar: 0 };
+const RANKS_ORDER = ['tycoon', 'rich', 'commoner', 'beggar'];
+const POINTS = { tycoon: 30, rich: 20, commoner: 10, beggar: 0 };
 
 const GamePhase = {
   LOBBY: 'lobby',
@@ -89,47 +89,28 @@ class TycoonGame {
 
   setupExchange() {
     // Find ranks
-    const tycoon = this.players.find(p => p.rank === 'tycoon');
-    const rich = this.players.find(p => p.rank === 'rich');
-    const poor = this.players.find(p => p.rank === 'poor');
-    const beggar = this.players.find(p => p.rank === 'beggar');
+    const tycoon  = this.players.find(p => p.rank === 'tycoon');
+    const rich     = this.players.find(p => p.rank === 'rich');
+    const commoner = this.players.find(p => p.rank === 'commoner');
+    const beggar   = this.players.find(p => p.rank === 'beggar');
 
     this.exchangePending = [];
     this.exchangesDone = new Set();
 
-    if (!tycoon || !rich || !poor || !beggar) {
-      // First round, no exchange
+    if (!tycoon || !rich || !commoner || !beggar) {
+      // First round or < 4 players — no exchange
       this.startRound();
       return;
     }
 
-    // Tycoon gets 2 best from Beggar, Beggar gives 2 best
-    // Rich gets 1 best from Poor, Poor gives 1 best
-    this.exchangePending.push({
-      giverId: beggar.id,
-      receiverId: tycoon.id,
-      count: 2,
-      giversChoice: false // Beggar MUST give best cards
-    });
-    this.exchangePending.push({
-      giverId: poor.id,
-      receiverId: rich.id,
-      count: 1,
-      giversChoice: false // Poor MUST give best card
-    });
-    // Tycoon/Rich choose which cards to give to Beggar/Poor
-    this.exchangePending.push({
-      giverId: tycoon.id,
-      receiverId: beggar.id,
-      count: 2,
-      giversChoice: true // Tycoon chooses
-    });
-    this.exchangePending.push({
-      giverId: rich.id,
-      receiverId: poor.id,
-      count: 1,
-      giversChoice: true // Rich chooses
-    });
+    // Beggar must give 2 best cards to Tycoon
+    this.exchangePending.push({ giverId: beggar.id,   receiverId: tycoon.id,  count: 2, giversChoice: false });
+    // Commoner must give 1 best card to Rich
+    this.exchangePending.push({ giverId: commoner.id, receiverId: rich.id,    count: 1, giversChoice: false });
+    // Tycoon chooses 2 cards to give Beggar
+    this.exchangePending.push({ giverId: tycoon.id,   receiverId: beggar.id,  count: 2, giversChoice: true  });
+    // Rich chooses 1 card to give Commoner
+    this.exchangePending.push({ giverId: rich.id,     receiverId: commoner.id,count: 1, giversChoice: true  });
 
     this.phase = GamePhase.EXCHANGE;
     this._notify();
@@ -362,7 +343,8 @@ class TycoonGame {
     this.stopTurnTimer();
     this.phase = GamePhase.ROUND_END;
 
-    // Assign ranks and points based on finish order
+    // Assign ranks based on finish order
+    // 4 players: 1st=tycoon(30), 2nd=rich(20), 3rd=commoner(10), 4th=beggar(0)
     const rankNames = ['tycoon', 'rich', 'commoner', 'beggar'];
     // For < 4 players adapt
     const rankAssignment = this.finishOrder.map((playerIdx, pos) => {

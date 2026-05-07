@@ -13,7 +13,7 @@ const RANK_ORDER_NORMAL = ['3','4','5','6','7','8','9','10','J','Q','K','A','2']
 // Special strengths (always on top):
 // 13 = Joker, 14 = 3♠ (only beats single Joker)
 
-const CARD_SPRITESHEET = 'cards_sheet.png';
+const CARD_SPRITESHEET = 'tex/card_sheet.png';
 // Sheet layout: 2048x1240, 12 cols x 5 rows
 // Row 0: clubs    A 2 3 4 5 6 7 8 9 10 J Q
 // Row 1: diamonds A 2 3 4 5 6 7 8 9 10 J Q
@@ -303,22 +303,20 @@ function cardDisplayName(card) {
 // Get rank display label
 function rankLabel(rank) {
   const labels = {
-    'tycoon': '👑 TYCOON',
-    'rich': '🎩 RICH',
+    'tycoon':   '👑 TYCOON',
+    'rich':     '🎩 RICH',
     'commoner': '⚔️ COMMONER',
-    'poor': '👤 POOR',
-    'beggar': '💀 BEGGAR'
+    'beggar':   '💀 BEGGAR'
   };
   return labels[rank] || rank.toUpperCase();
 }
 
 function rankColor(rank) {
   const colors = {
-    'tycoon': '#ffd700',
-    'rich': '#c0c0c0',
+    'tycoon':   '#ffd700',
+    'rich':     '#c0c0c0',
     'commoner': '#ffffff',
-    'poor': '#888',
-    'beggar': '#cc3333'
+    'beggar':   '#cc3333'
   };
   return colors[rank] || '#fff';
 }
