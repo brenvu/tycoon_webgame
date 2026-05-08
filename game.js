@@ -35,7 +35,8 @@ class TycoonGame {
     this.exchangesDone = new Set();
     this.exchangeNewHands = {}; // playerId -> newly dealt hand (choosing from this)
     this.exchangeBuffer = {};   // giverId -> cards they chose to give
-    this.bankruptTycoonId = null; // set when tycoon goes bankrupt, cleared after next startRound
+    this.bankruptTycoonId = null;
+    this.pileClearPending = false; // set when tycoon goes bankrupt, cleared after next startRound
     this.localPlayerIndex = -1;
     this.hostIndex = 0;
     this.onStateChange = null; // callback
@@ -126,6 +127,21 @@ class TycoonGame {
     // Reset revolution state
     this.revolutionActive = false;
 
+    // Convert any 'bankrupt' player to 'beggar' NOW for exchange purposes
+    // (They were bankrupt last round, now they start fresh as beggar)
+    this.players.forEach(p => {
+      if (p.rank === 'bankrupt') {
+        p.rank = 'beggar';
+        p.bankrupted = false;
+        this._log(`${p.nickname} begins exchange as Beggar.`);
+      }
+    });
+    if (this.bankruptTycoonId) {
+      const bt = this.players.find(p => p.id === this.bankruptTycoonId);
+      if (bt && bt.rank !== 'beggar') { bt.rank = 'beggar'; bt.bankrupted = false; }
+      this.bankruptTycoonId = null;
+    }
+
     // Find ranks from PREVIOUS round
     const tycoon  = this.players.find(p => p.rank === 'tycoon');
     const rich     = this.players.find(p => p.rank === 'rich');
@@ -138,7 +154,7 @@ class TycoonGame {
     this.exchangeBuffer = {};
 
     if (!tycoon || !rich || !commoner || !beggar) {
-      // First round or < 4 players — skip exchange, go straight to round
+      // First round or missing ranks — skip exchange
       this.startRound();
       return;
     }
@@ -326,8 +342,7 @@ class TycoonGame {
       this._log(`8 STOP! ${player.nickname} clears the pile and goes again!`);
       this.checkPlayerFinished(this.currentTurn);
       if (this.phase === GamePhase.PLAYING) {
-        this.clearPile(this.currentTurn);
-        this.startTurnTimer();
+        this.clearPile(this.currentTurn, 3000); // 3s delay so players see the 8
       }
       this._notify();
       return { ok: true };
@@ -369,7 +384,7 @@ class TycoonGame {
     if (needToPass === 0) {
       // Everyone else has passed — last player wins the trick
       this._log(`All others passed. ${this.players[lastPlayerIdx]?.nickname || 'Someone'} wins the trick!`);
-      this.clearPile(lastPlayerIdx !== -1 ? lastPlayerIdx : this.currentTurn);
+      this.clearPile(lastPlayerIdx !== -1 ? lastPlayerIdx : this.currentTurn, 3000);
     } else {
       this.advanceTurn();
       this._notify();
@@ -377,15 +392,29 @@ class TycoonGame {
     }
   }
 
-  clearPile(nextPlayerIdx) {
+  clearPile(nextPlayerIdx, delay = 0) {
+    if (delay > 0) {
+      // Show current pile for 'delay' ms before clearing
+      // Temporarily stop timer and mark pile as "clearing"
+      this.stopTurnTimer();
+      this.pileClearPending = true;
+      this._notify();
+      setTimeout(() => {
+        this.pileClearPending = false;
+        this._doClearPile(nextPlayerIdx);
+      }, delay);
+    } else {
+      this._doClearPile(nextPlayerIdx);
+    }
+  }
+
+  _doClearPile(nextPlayerIdx) {
     this.pile = [];
     this.currentPlay = null;
     this.passCount = 0;
-    // Clear per-player pass flags for new trick
     this.players.forEach(p => { p.passedThisTrick = false; });
     this.currentTurn = nextPlayerIdx;
 
-    // Skip finished players
     let attempts = 0;
     while (this.players[this.currentTurn]?.finished && attempts < this.players.length) {
       this.currentTurn = (this.currentTurn + 1) % this.players.length;
@@ -570,6 +599,7 @@ class TycoonGame {
       exchangeNewHands: this.exchangeNewHands,
       recentLogs: [...this.recentLogs],
       logSeq: this.logSeq,
+      pileClearPending: this.pileClearPending,
       localPlayerIndex: this.localPlayerIndex
     };
   }

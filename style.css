@@ -501,75 +501,127 @@ select option { background: #1a1a1f; }
 
 .game-layout {
   display: grid;
-  grid-template-rows: 48px auto minmax(0, 1fr) auto 4px auto;
-  /* topbar | opponents | play-area | action-buttons | timer | local-player */
+  grid-template-rows: 32px auto minmax(0, 1fr) auto 4px auto;
+  /* slim-topbar | opponents+revolution | play-area | action-buttons | timer | local-player */
   height: 100vh;
   width: 100%;
   overflow: hidden;
   gap: 0;
 }
 
-/* Topbar */
-.game-topbar {
+/* Slim topbar — overlaid over opponents area top edge */
+.game-topbar-slim {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--p5-black);
-  border-bottom: 2px solid var(--p5-red);
-  padding: 0 16px;
+  padding: 4px 12px;
+  background: rgba(0,0,0,0.7);
+  border-bottom: 1px solid rgba(232,0,28,0.4);
   flex-shrink: 0;
-  min-height: 56px;
+  height: 32px;
+  z-index: 5;
 }
 
-.topbar-left {
+.topbar-round {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 4px;
 }
 
-.round-label {
-  font-size: 11px;
+.round-label-sm {
+  font-size: 9px;
   letter-spacing: 3px;
-  color: var(--p5-white);
+  color: var(--p5-red);
   font-weight: 700;
 }
 
-.round-num {
+.round-num-sm {
   font-family: var(--font-display);
-  font-size: 36px;
+  font-size: 18px;
   color: var(--p5-white);
   line-height: 1;
 }
 
-.round-of { font-size: 36px; font-family: var(--font-display); color: var(--p5-white); }
-
-.topbar-center { flex: 1; display: flex; justify-content: center; }
-
-.revolution-banner {
+.round-of-sm {
   font-family: var(--font-display);
-  font-size: 16px;
-  letter-spacing: 4px;
-  color: var(--p5-gold);
-  text-shadow: 0 0 20px rgba(255,215,0,0.8);
-  animation: revPulse 0.5s ease-in-out infinite alternate;
+  font-size: 18px;
+  color: var(--p5-white);
 }
 
-@keyframes revPulse {
-  from { opacity: 0.8; }
-  to { opacity: 1; text-shadow: 0 0 30px rgba(255,215,0,1); }
+/* Revolution outline wrapper around opponent+play areas */
+.game-upper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
+.game-upper.revolution-active {
+  outline: 2px solid #84cc16;
+  box-shadow: 0 0 24px rgba(132,204,22,0.45), inset 0 0 24px rgba(132,204,22,0.08);
+}
+
+.revolution-label {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #84cc16;
+  color: #000;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  padding: 3px 16px;
+  z-index: 20;
+  white-space: nowrap;
+  animation: revLabelPulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes revLabelPulse {
+  from { box-shadow: 0 0 8px rgba(132,204,22,0.6); }
+  to   { box-shadow: 0 0 20px rgba(132,204,22,1); }
+}
+
+/* Old banner kept hidden */
+.revolution-banner { display: none; }
+
+/* Your-turn glow on local player area */
+.local-player-area.your-turn {
+  outline: 1px solid rgba(255,255,255,0.35);
+  box-shadow: 0 0 20px rgba(255,255,255,0.12), inset 0 0 16px rgba(255,255,255,0.04);
+}
+
+.your-turn-label {
+  background: rgba(255,255,255,0.12);
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: rgba(255,255,255,0.8);
+  text-align: center;
+  padding: 3px 0;
+  margin: -6px -12px 4px -12px;
+  width: calc(100% + 24px);
+}
+
+/* Card hover outline (selection indicator) */
+.hand-cards .card-el:not(.unplayable):not(.selected):hover {
+  border-color: rgba(255,255,255,0.7) !important;
+  box-shadow: 0 0 10px rgba(255,255,255,0.25);
+}
+
+/* Event feed — bigger */
 .topbar-right {}
 
 .scores-mini {
   display: flex;
-  gap: 16px;
-  font-size: 13px;
+  gap: 12px;
+  font-size: 11px;
 }
 
-.score-row { display: flex; gap: 6px; align-items: center; }
-.score-name { color: #ccc; letter-spacing: 1px; font-size: 13px; }
-.score-pts { color: var(--p5-gold); font-weight: 700; font-size: 14px; }
+.score-row { display: flex; gap: 4px; align-items: center; }
+.score-name { color: #ccc; letter-spacing: 1px; font-size: 11px; }
+.score-pts { color: var(--p5-gold); font-weight: 700; font-size: 12px; }
 
 /* Opponents area */
 .opponents-area {
@@ -589,15 +641,15 @@ select option { background: #1a1a1f; }
   flex-direction: column;
   align-items: center;
   gap: 0;
-  padding: 0 12px 30px;
+  padding: 0 16px 36px;
   background: var(--p5-panel);
   border: 1px solid var(--p5-panel-border);
-  width: clamp(110px, 11vw, 140px);
-  min-width: clamp(110px, 11vw, 140px);
-  max-width: clamp(110px, 11vw, 140px);
-  height: clamp(170px, 18vh, 200px);
-  min-height: clamp(170px, 18vh, 200px);
-  max-height: clamp(170px, 18vh, 200px);
+  width: 148px;
+  min-width: 148px;
+  max-width: 148px;
+  height: 210px;
+  min-height: 210px;
+  max-height: 210px;
   position: relative;
   transition: border-color 0.3s, box-shadow 0.3s;
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
@@ -618,8 +670,8 @@ select option { background: #1a1a1f; }
 .opponent-panel.player-finished { opacity: 0.5; }
 
 .opponent-avatar {
-  width: clamp(44px, 5vw, 60px);
-  height: clamp(44px, 5vw, 60px);
+  width: 64px;
+  height: 64px;
   border: 2px solid var(--p5-panel-border);
   overflow: hidden;
   border-radius: 2px;
@@ -634,7 +686,7 @@ select option { background: #1a1a1f; }
   display: flex; align-items: center; justify-content: center;
   background: var(--p5-red);
   font-family: var(--font-display);
-  font-size: clamp(16px, 2.5vw, 24px);
+  font-size: 24px;
   color: white;
 }
 
@@ -683,7 +735,7 @@ select option { background: #1a1a1f; }
 
 .count-num-big {
   font-family: var(--font-display);
-  font-size: clamp(28px, 3.5vw, 40px);
+  font-size: 40px;
   color: var(--p5-white);
   line-height: 1;
   display: block;
@@ -1109,11 +1161,11 @@ select option { background: #1a1a1f; }
   left: 8px;
   top: 8px;
   bottom: 8px;
-  width: 220px;
+  width: 270px;
   display: flex;
-  flex-direction: column-reverse; /* newest at bottom */
+  flex-direction: column-reverse;
   justify-content: flex-end;
-  gap: 3px;
+  gap: 4px;
   overflow: hidden;
   pointer-events: none;
   z-index: 10;
@@ -1122,15 +1174,15 @@ select option { background: #1a1a1f; }
 .feed-entry {
   display: flex;
   align-items: flex-start;
-  gap: 7px;
-  padding: 7px 12px 7px 10px;
+  gap: 8px;
+  padding: 8px 14px 8px 10px;
   margin: 0 2px;
   border-left: 3px solid rgba(255,255,255,0.15);
-  background: rgba(8, 4, 12, 0.92);
-  font-size: 13px;
-  letter-spacing: 0.2px;
-  line-height: 1.4;
-  color: rgba(255,255,255,0.90);
+  background: rgba(8, 4, 12, 0.94);
+  font-size: 14px;
+  letter-spacing: 0.3px;
+  line-height: 1.45;
+  color: rgba(255,255,255,0.92);
   animation: feedIn 0.2s ease forwards;
   flex-shrink: 0;
 }

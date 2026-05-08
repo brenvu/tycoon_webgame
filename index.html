@@ -91,23 +91,21 @@
 <div id="screen-game" class="screen hidden">
   <div class="game-layout">
 
-    <!-- Top bar -->
-    <div class="game-topbar">
-      <div class="topbar-left">
-        <span class="round-label">ROUND</span>
-        <span class="round-num" id="display-round">1</span>
-        <span class="round-of">/ 3</span>
+    <!-- Slim topbar overlay (scores + round, no height wasted) -->
+    <div class="game-topbar-slim">
+      <div class="topbar-round">
+        <span class="round-label-sm">ROUND</span>
+        <span class="round-num-sm" id="display-round">1</span>
+        <span class="round-of-sm">/ 3</span>
       </div>
-      <div class="topbar-center">
-        <div id="revolution-banner" class="revolution-banner hidden">⚡ REVOLUTION ACTIVE ⚡</div>
-      </div>
-      <div class="topbar-right">
-        <div class="scores-mini" id="scores-mini"></div>
-      </div>
+      <div class="scores-mini" id="scores-mini"></div>
     </div>
 
-    <!-- Opponents area (top 3 players) -->
-    <div class="opponents-area" id="opponents-area"></div>
+    <!-- Opponents area (top 3 players) — with revolution outline wrapper -->
+    <div class="game-upper" id="game-upper">
+      <div class="opponents-area" id="opponents-area"></div>
+      <div class="revolution-label hidden" id="revolution-label">⚡ REVOLUTION — VALUES REVERSED</div>
+    </div>
 
     <!-- Center play area with exchange banner overlay -->
     <div class="play-area" id="play-area">
@@ -139,7 +137,8 @@
 
 
     <!-- Local player area -->
-    <div class="local-player-area">
+    <div class="local-player-area" id="local-player-area">
+      <div class="your-turn-label hidden" id="your-turn-label">▶ YOUR TURN</div>
       <div class="local-player-info">
         <div class="local-avatar-wrap">
           <img class="local-avatar-img" id="local-avatar-img" src="" alt="">

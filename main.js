@@ -508,6 +508,26 @@ class TycoonApp {
     UI.renderRevolution(g.revolutionActive);
     UI.renderTimer(this.isHost ? g.turnTimer : this._lastKnownTimer);
 
+    // Revolution outline on game-upper area
+    const gameUpper = document.getElementById('game-upper');
+    const revLabel = document.getElementById('revolution-label');
+    if (gameUpper) {
+      gameUpper.classList.toggle('revolution-active', !!g.revolutionActive);
+    }
+    if (revLabel) {
+      revLabel.classList.toggle('hidden', !g.revolutionActive);
+    }
+
+    // Your-turn glow on local player area
+    const localArea = document.getElementById('local-player-area');
+    const yourTurnLabel = document.getElementById('your-turn-label');
+    if (localArea) {
+      localArea.classList.toggle('your-turn', !!isMyTurn && g.phase === 'playing');
+    }
+    if (yourTurnLabel) {
+      yourTurnLabel.classList.toggle('hidden', !isMyTurn || g.phase !== 'playing');
+    }
+
     // During exchange phase, clear the main hand display and pile
     if (g.phase === 'exchange') {
       const handEl = document.getElementById('hand-cards');
