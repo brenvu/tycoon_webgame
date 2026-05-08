@@ -101,6 +101,30 @@ class TycoonApp {
     if (modalOk) modalOk.addEventListener('click', () => {
       document.getElementById('modal-received')?.classList.add('hidden');
     });
+
+    // Chat input
+    const chatInput = document.getElementById('chat-input');
+    const chatSendBtn = document.getElementById('chat-send-btn');
+    const sendChat = () => {
+      if (!chatInput) return;
+      const text = chatInput.value.trim();
+      if (!text) return;
+      chatInput.value = '';
+      const localPlayer = this.game.players[this.localPlayerIndex];
+      const sender = localPlayer?.nickname || 'Player';
+      // Show immediately for sender
+      this._addChatMessage(sender, text, true);
+      // Broadcast to all others
+      this.net.broadcastGameMessage({ type: 'chat', sender, text });
+      if (!this.isHost) {
+        // Also send to host (broadcastGameMessage only goes to guests from host)
+        this.net.sendToHost({ type: 'chat', sender, text });
+      }
+    };
+    if (chatSendBtn) chatSendBtn.addEventListener('click', sendChat);
+    if (chatInput) chatInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); sendChat(); }
+    });
     document.getElementById('input-room-code').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.joinGame();
     });
@@ -350,6 +374,14 @@ class TycoonApp {
           this._showReceivedCardsToast();
         }
         break;
+      case 'chat':
+        // Guest or host received a chat message — display and relay if host
+        this._addChatMessage(msg.sender, msg.text, false);
+        if (this.isHost) {
+          // Relay to all other guests
+          this.net.broadcastGameMessage({ type: 'chat', sender: msg.sender, text: msg.text });
+        }
+        break;
       case 'play_error':
         UI.showToast('Invalid: ' + msg.reason, 3000);
         break;
@@ -485,6 +517,10 @@ class TycoonApp {
     const localPlayer = g.players[this.localPlayerIndex];
     const isMyTurn    = g.isPlayerTurn(this.localId);
 
+    // Update round counter in topbar
+    const roundEl = document.getElementById('display-round');
+    if (roundEl) roundEl.textContent = g.round;
+
     UI.renderScoresMini(state.players);
     UI.renderLocalPlayer(localPlayer, g.revolutionActive);
     UI.renderOpponents(state.players, this.localPlayerIndex, g.currentTurn, g.revolutionActive);
@@ -539,6 +575,16 @@ class TycoonApp {
     if (cards.length === 0) return;
     this.net.sendToHost({ type: 'play_cards', cards });
     this.selectedCards.clear();
+    // Optimistically remove cards from local hand so they disappear immediately
+    if (!this.isHost) {
+      const localPlayer = this.game.players[this.localPlayerIndex];
+      if (localPlayer) {
+        cards.forEach(card => {
+          const idx = localPlayer.hand.findIndex(c => c.id === card.id);
+          if (idx !== -1) localPlayer.hand.splice(idx, 1);
+        });
+      }
+    }
     this.renderGameState();
   }
 
@@ -593,6 +639,19 @@ class TycoonApp {
       okBtn.removeEventListener('click', dismiss);
     };
     okBtn.addEventListener('click', dismiss);
+  }
+
+  _addChatMessage(sender, text, isOwn) {
+    const panel = document.getElementById('chat-panel');
+    if (!panel) return;
+    const msg = document.createElement('div');
+    msg.className = 'chat-message' + (isOwn ? ' own-message' : '');
+    msg.innerHTML = `<span class="chat-sender">${sender}</span><span class="chat-text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`;
+    panel.appendChild(msg);
+    // Keep max 20 messages, remove oldest
+    while (panel.children.length > 20) panel.removeChild(panel.firstChild);
+    // Scroll to newest (bottom)
+    panel.scrollTop = panel.scrollHeight;
   }
 
   renderExchangeOnGameScreen() {

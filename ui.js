@@ -207,13 +207,13 @@ const UI = {
         el.appendChild(turnEl);
       }
 
-      // Pass label appended to info after rank (before card count)
+      // Pass badge overlaid on avatar — fixed position, doesn't affect layout
       if (player.passedThisTrick && !player.finished) {
         const passLabel = document.createElement('div');
-        passLabel.className = 'pass-label';
-        passLabel.textContent = '— PASSED —';
-        // Insert before cardsEl
-        info.insertBefore(passLabel, cardsEl);
+        passLabel.className = 'pass-badge';
+        passLabel.textContent = 'PASSED';
+        avatarEl.style.position = 'relative';
+        avatarEl.appendChild(passLabel);
       }
 
       el.appendChild(avatarEl);

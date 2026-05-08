@@ -413,6 +413,31 @@ class TycoonGame {
       player.finishPosition = pos;
       this._log(`🏆 ${player.nickname} finished ${pos}${ordinal(pos)}!`);
 
+      // Tycoon bankruptcy check: if tycoon didn't finish 1st in round 2+
+      if (this.round > 1 && pos > 1) {
+        const tycoon = this.players.find(p => p.rank === 'tycoon');
+        if (tycoon && tycoon.id === player.id) {
+          // Tycoon just finished NOT 1st — immediate bankruptcy mid-round
+          this._log(`💀 BANKRUPTCY! ${player.nickname} lost Tycoon status — demoted to Beggar!`);
+          player.rank = 'beggar';
+          player.bankrupted = true;
+          this.bankruptTycoonId = player.id; // will sit out NEXT round too
+        } else if (tycoon && !tycoon.finished && pos === 1) {
+          // Someone else finished 1st before the tycoon — tycoon is now doomed
+          // but we wait for them to finish to apply bankruptcy
+          tycoon._willBankrupt = true;
+        }
+      }
+
+      // Apply deferred bankruptcy when tycoon eventually finishes
+      if (player._willBankrupt && player.rank === 'tycoon') {
+        this._log(`💀 BANKRUPTCY! ${player.nickname} lost Tycoon status — demoted to Beggar!`);
+        player.rank = 'beggar';
+        player.bankrupted = true;
+        player._willBankrupt = false;
+        this.bankruptTycoonId = player.id;
+      }
+
       // Check if round is over (all but last player finished)
       const unfinished = this.players.filter(p => !p.finished);
       if (unfinished.length <= 1) {
@@ -515,7 +540,7 @@ class TycoonGame {
         avatar: p.avatar,
         rank: p.rank,
         score: p.score,
-        handCount: p.hand.length,
+        handCount: p.hand.length > 0 ? p.hand.length : (p.handCount || 0),
         finished: p.finished,
         finishPosition: p.finishPosition,
         passedThisTrick: p.passedThisTrick || false,
