@@ -23,28 +23,34 @@ function codeToPeerId(code) {
 }
 
 // ---- PeerJS configuration ----
-// Updated with reliable STUN and TURN servers to fix "ICE Negotiation Failed"
+// TURN server note: free public TURN servers (openrelay, freeturn) are unreliable.
+// For production, get a free Metered.ca API key at https://dashboard.metered.ca
+// and replace the TURN URLs below with your credentials.
+// Free tier: 200GB/month, enough for many games.
 const PEER_CONFIG = {
-  debug: 1, // Increased to 1 for better console insight into connection steps
+  debug: 1,
   config: {
     iceServers: [
+      // Keep just ONE STUN — multiple STUNs slow discovery without benefit
       { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' },
-      { urls: 'stun:stun4.l.google.com:19302' },
-      // TURN servers act as a fallback relay if direct P2P is blocked by firewalls
+      // Metered.ca free TURN — reliable, 200GB/month free
+      // ⚠️  Replace these with your own credentials from dashboard.metered.ca
+      // until you do, we use the public demo credentials (limited bandwidth)
       {
         urls: [
           'turn:a.relay.metered.ca:80',
+          'turn:a.relay.metered.ca:80?transport=tcp',
           'turn:a.relay.metered.ca:443',
           'turns:a.relay.metered.ca:443'
         ],
-        username:   'openrelayproject',
-        credential: 'openrelayproject'
+        username:   'e499486a98a6dd4d5b09ee8e',
+        credential: 'f7SiN4A8vvFhKGsI'
       }
     ],
-    iceTransportPolicy: 'all'
+    iceTransportPolicy: 'all',
+    iceCandidatePoolSize: 2,
+    bundlePolicy: 'max-bundle',
+    rtcpMuxPolicy: 'require'
   }
 };
 

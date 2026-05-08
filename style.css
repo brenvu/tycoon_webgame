@@ -875,11 +875,12 @@ select option { background: #1a1a1f; }
 }
 
 .local-avatar-wrap {
-  width: 128px; height: 128px;
+  width: clamp(64px, 8vw, 96px);
+  height: clamp(64px, 8vw, 96px);
   border: 2px solid var(--p5-red);
   overflow: hidden;
   flex-shrink: 0;
-  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
 }
 
 .local-avatar-img { width: 100%; height: 100%; object-fit: cover; }
@@ -888,29 +889,32 @@ select option { background: #1a1a1f; }
   display: flex; align-items: center; justify-content: center;
   background: var(--p5-red);
   font-family: var(--font-display);
-  font-size: 52px;
+  font-size: clamp(24px, 4vw, 40px);
 }
 
-.local-player-details { flex: 1; }
+.local-player-details { flex: 1; min-width: 0; }
 
 .local-nickname {
-  font-size: 20px;
+  font-size: clamp(13px, 1.5vw, 18px);
   font-weight: 700;
   letter-spacing: 2px;
   color: var(--p5-white);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .local-rank-badge {
   display: inline-block;
-  font-size: 13px;
+  font-size: clamp(9px, 1vw, 12px);
   letter-spacing: 3px;
   font-weight: 700;
-  padding: 3px 10px;
+  padding: 2px 8px;
   border: 1px solid;
-  margin: 4px 0;
+  margin: 2px 0;
 }
 
-.local-cards-left { font-size: 13px; color: #aaa; letter-spacing: 1px; }
+.local-cards-left { font-size: clamp(10px, 1vw, 12px); color: #aaa; letter-spacing: 1px; }
 
 /* Hand area */
 .hand-area {

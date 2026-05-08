@@ -169,14 +169,16 @@ function validatePlay(selectedCards, currentPlay, revolutionActive) {
     return { valid: true, isStop: true };
   }
 
-  // If pile is empty, anything goes
+  // If pile is empty
   if (!currentPlay) {
     if (count < 1 || count > 4) return { valid: false, reason: 'Play 1-4 cards.' };
     if (!isValidSet(selectedCards)) {
       return { valid: false, reason: 'Cards must be the same rank (Joker counts as any rank).' };
     }
     const rev = isRevolution(selectedCards);
-    return { valid: true, isRevolution: rev, isCounterRevolution: false };
+    // Counter-revolution on new trick: 4-of-a-kind played when revolution is active
+    const counterRev = rev && revolutionActive;
+    return { valid: true, isRevolution: rev, isCounterRevolution: counterRev };
   }
 
   // Must match count of current play

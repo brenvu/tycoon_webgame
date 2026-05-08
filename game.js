@@ -299,7 +299,7 @@ class TycoonGame {
       if (result.isCounterRevolution) {
         // Counter-revolution: cancels the active revolution, restores normal order
         this.revolutionActive = false;
-        this._log(`🔄 COUNTER-REVOLUTION! ${player.nickname} undoes the revolution — values RESTORED!`);
+        this._log(`🔄 COUNTER-REVOLUTION by ${player.nickname}! Card values RESTORED to normal!`);
       } else {
         // New revolution: flip values
         this.revolutionActive = !this.revolutionActive;
@@ -468,22 +468,43 @@ class TycoonGame {
       rank: rankNames[pos] ?? 'beggar'
     }));
 
-    // Apply ranks and points
-    // Bankrupt players (rank='bankrupt') keep beggar-level points but display as 'bankrupt'
-    // They become 'beggar' at start of next round and CAN play
-    rankAssignment.forEach(({ playerIdx, rank }) => {
+    // Identify bankrupt player (if any) — they occupied a finishOrder slot
+    const bankruptPlayer = this.players.find(p => p.rank === 'bankrupt');
+
+    // Assign ranks to non-bankrupt players, filling the slots left by removing bankrupt
+    // Available ranks = full set MINUS the slot the bankrupt player displaced
+    // Rule: promote all non-tycoon players by 1 level when bankrupt exists
+    // bankrupt→beggar, beggar→poor, poor→rich (tycoon slot still goes to 1st place)
+    const promotionMap = { 'beggar': 'poor', 'poor': 'rich', 'rich': 'rich' };
+    const rankNames4 = ['tycoon', 'rich', 'poor', 'beggar'];
+
+    // Build rank assignment for non-bankrupt players in their finish order
+    const nonBankruptFinish = this.finishOrder.filter(idx => !this.players[idx].bankrupted);
+    let rankSlot = 0;
+    nonBankruptFinish.forEach(playerIdx => {
       const player = this.players[playerIdx];
-      if (player.rank === 'bankrupt') {
-        // Already handled mid-round — give them 0 pts (beggar level), keep bankrupt display
-        player.score += 0;
-        this._log(`${player.nickname} → BANKRUPT (0 pts) — becomes Beggar next round`);
-        // Set bankruptTycoonId so next round they START as beggar (and can play fully)
-        this.bankruptTycoonId = player.id;
-      } else {
-        player.rank = rank;
-        const pts = POINTS[rank] || 0;
-        player.score += pts;
-        this._log(`${player.nickname} → ${rank.toUpperCase()} (+${pts} pts)`);
+      let assignedRank = rankNames4[rankSlot] ?? 'beggar';
+      // If bankrupt exists, promote: shift the assigned rank up by 1 for slots after 1st
+      if (bankruptPlayer && rankSlot > 0) {
+        assignedRank = promotionMap[assignedRank] || assignedRank;
+      }
+      player.rank = assignedRank;
+      rankSlot++;
+    });
+
+    // Bankrupt player becomes beggar (will be set in startRound via bankruptTycoonId)
+    if (bankruptPlayer) {
+      bankruptPlayer.rank = 'bankrupt'; // keep display as bankrupt until next round
+      this.bankruptTycoonId = bankruptPlayer.id;
+      this._log(`${bankruptPlayer.nickname} → BANKRUPT (0 pts) — becomes Beggar next round`);
+    }
+
+    // Score all players based on final ranks (bankrupt = 0)
+    this.players.forEach(p => {
+      const pts = POINTS[p.rank] || 0;
+      p.score += pts;
+      if (p.rank !== 'bankrupt') {
+        this._log(`${p.nickname} → ${p.rank.toUpperCase()} (+${pts} pts)`);
       }
     });
 
