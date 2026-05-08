@@ -440,14 +440,16 @@ class TycoonGame {
 
   _forceBankruptTycoon(tycoon) {
     const tycoonIdx = this.players.indexOf(tycoon);
-    // Force-finish the tycoon — they can no longer play this round
+    // Force-finish the tycoon — mark as bankrupt, REMOVE remaining cards
+    // Their position will be last (4th) — we don't push to finishOrder yet;
+    // they'll be appended when endRound processes remaining unfinished players,
+    // OR we push them to a pending list and append at end of finishOrder in endRound
     tycoon.finished = true;
-    tycoon.finishPosition = this.finishOrder.length + 1;
-    this.finishOrder.push(tycoonIdx);
-    // Mark as 'bankrupt' — a special rank shown this round, becomes 'beggar' next round
+    tycoon.hand = []; // clear hand — they're done
     tycoon.rank = 'bankrupt';
     tycoon.bankrupted = true;
-    // Skip to this player if it's currently their turn
+    tycoon._bankruptPending = true; // endRound will put them last
+    // Skip their turn if it's currently their turn
     if (this.currentTurn === tycoonIdx) {
       this.advanceTurn();
     }
@@ -461,49 +463,45 @@ class TycoonGame {
     this.stopTurnTimer();
     this.phase = GamePhase.ROUND_END;
 
-    // 4-player ranks: 1st=tycoon, 2nd=rich, 3rd=poor, 4th=beggar
-    const rankNames = ['tycoon', 'rich', 'poor', 'beggar'];
-    const rankAssignment = this.finishOrder.map((playerIdx, pos) => ({
-      playerIdx,
-      rank: rankNames[pos] ?? 'beggar'
-    }));
-
-    // Identify bankrupt player (if any) — they occupied a finishOrder slot
-    const bankruptPlayer = this.players.find(p => p.rank === 'bankrupt');
-
-    // Assign ranks to non-bankrupt players, filling the slots left by removing bankrupt
-    // Available ranks = full set MINUS the slot the bankrupt player displaced
-    // Rule: promote all non-tycoon players by 1 level when bankrupt exists
-    // bankrupt→beggar, beggar→poor, poor→rich (tycoon slot still goes to 1st place)
-    const promotionMap = { 'beggar': 'poor', 'poor': 'rich', 'rich': 'rich' };
-    const rankNames4 = ['tycoon', 'rich', 'poor', 'beggar'];
-
-    // Build rank assignment for non-bankrupt players in their finish order
-    const nonBankruptFinish = this.finishOrder.filter(idx => !this.players[idx].bankrupted);
-    let rankSlot = 0;
-    nonBankruptFinish.forEach(playerIdx => {
-      const player = this.players[playerIdx];
-      let assignedRank = rankNames4[rankSlot] ?? 'beggar';
-      // If bankrupt exists, promote: shift the assigned rank up by 1 for slots after 1st
-      if (bankruptPlayer && rankSlot > 0) {
-        assignedRank = promotionMap[assignedRank] || assignedRank;
+    // Append any pending bankrupt players to the END of finishOrder (forced 4th/last)
+    this.players.forEach((p, idx) => {
+      if (p._bankruptPending) {
+        p._bankruptPending = false;
+        p.finishPosition = this.finishOrder.length + 1;
+        this.finishOrder.push(idx);
       }
-      player.rank = assignedRank;
-      rankSlot++;
     });
 
-    // Bankrupt player becomes beggar (will be set in startRound via bankruptTycoonId)
-    if (bankruptPlayer) {
-      bankruptPlayer.rank = 'bankrupt'; // keep display as bankrupt until next round
-      this.bankruptTycoonId = bankruptPlayer.id;
-      this._log(`${bankruptPlayer.nickname} → BANKRUPT (0 pts) — becomes Beggar next round`);
-    }
+    // Also add anyone still unfinished (edge case)
+    this.players.forEach((p, idx) => {
+      if (!p.finished) {
+        p.finished = true;
+        p.finishPosition = this.finishOrder.length + 1;
+        this.finishOrder.push(idx);
+      }
+    });
 
-    // Score all players based on final ranks (bankrupt = 0)
+    // Assign ranks cleanly by finish position
+    // With bankrupt: 1st=tycoon, 2nd=rich, 3rd=poor, 4th(bankrupt)=bankrupt
+    // Without bankrupt: 1st=tycoon, 2nd=rich, 3rd=poor, 4th=beggar
+    const rankNames = ['tycoon', 'rich', 'poor', 'beggar'];
+    this.finishOrder.forEach((playerIdx, pos) => {
+      const player = this.players[playerIdx];
+      if (player.rank === 'bankrupt') {
+        // Keep bankrupt display rank; 0 pts; becomes beggar next round
+        this.bankruptTycoonId = player.id;
+      } else {
+        player.rank = rankNames[pos] ?? 'beggar';
+      }
+    });
+
+    // Score all players
     this.players.forEach(p => {
       const pts = POINTS[p.rank] || 0;
       p.score += pts;
-      if (p.rank !== 'bankrupt') {
+      if (p.rank === 'bankrupt') {
+        this._log(`${p.nickname} → BANKRUPT (0 pts) — becomes Beggar next round`);
+      } else {
         this._log(`${p.nickname} → ${p.rank.toUpperCase()} (+${pts} pts)`);
       }
     });
