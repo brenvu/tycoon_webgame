@@ -259,10 +259,11 @@ function getPlayableCards(hand, currentPlay, revolutionActive) {
   const required = currentPlay.topStrength;
   const requiredCount = currentPlay.count;
 
-  // Check 8 stops
-  hand.forEach(c => {
-    if (is8Stop(c)) playable.add(c.id);
-  });
+  // Check 8 stops — only playable if player has enough 8s to match required count
+  const eights = hand.filter(c => is8Stop(c));
+  if (eights.length >= requiredCount) {
+    eights.forEach(c => playable.add(c.id));
+  }
 
   // Check if 3♠ can be played (ONLY against a single Joker)
   if (requiredCount === 1 && required === 1000) {

@@ -560,34 +560,55 @@ select option { background: #1a1a1f; }
   box-shadow: 0 0 24px rgba(132,204,22,0.45), inset 0 0 24px rgba(132,204,22,0.08);
 }
 
-/* Revolution label — at top of play-area, fixed height so layout never shifts */
+/* Revolution label — thin bar across full width with centered badge */
 .revolution-label {
-  height: 30px;
-  line-height: 30px;
-  width: 100%;
-  text-align: center;
-  background: #84cc16;
-  color: #000;
-  font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 900;
-  letter-spacing: 6px;
-  white-space: nowrap;
+  height: 22px;
   flex-shrink: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
 }
 
+/* The thin bar line */
+.revolution-label::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  top: 50%;
+  height: 2px;
+  background: #84cc16;
+  box-shadow: 0 0 6px rgba(132,204,22,0.7);
+}
+
+/* The centered badge */
+.revolution-label::after {
+  content: 'REVOLUTION';
+  position: relative;
+  z-index: 1;
+  background: #84cc16;
+  color: #000;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 5px;
+  padding: 3px 18px;
+  white-space: nowrap;
+}
+
 .revolution-label.rev-visible {
   opacity: 1;
   pointer-events: auto;
-  animation: revLabelPulse 1s ease-in-out infinite alternate;
+  animation: revLabelPulse 1.2s ease-in-out infinite alternate;
 }
 
 @keyframes revLabelPulse {
-  from { box-shadow: 0 0 8px rgba(132,204,22,0.5); }
-  to   { box-shadow: 0 0 22px rgba(132,204,22,1); }
+  from { filter: drop-shadow(0 0 4px rgba(132,204,22,0.6)); }
+  to   { filter: drop-shadow(0 0 12px rgba(132,204,22,1)); }
 }
 
 /* Old banner kept hidden */
@@ -599,25 +620,45 @@ select option { background: #1a1a1f; }
   box-shadow: 0 0 20px rgba(255,255,255,0.15), inset 0 0 12px rgba(255,255,255,0.05);
 }
 
-/* Your-turn label — absolute overlay at top of local-player-area, no layout impact */
+/* Your-turn label — absolute bar at top of local-player-area, no layout impact */
 .your-turn-label {
   position: absolute;
-  top: 0;
+  top: -2px; /* sit on the red border */
   left: 0;
   right: 0;
   height: 22px;
-  line-height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* Thin bar */
+.your-turn-label::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  top: 50%;
+  height: 2px;
   background: #d1d5db;
-  color: #111111;
+}
+
+/* Centered badge */
+.your-turn-label::after {
+  content: '▶ YOUR TURN';
+  position: relative;
+  z-index: 1;
+  background: #d1d5db;
+  color: #111;
   font-family: var(--font-display);
   font-size: 9px;
   font-weight: 900;
   letter-spacing: 3px;
-  text-align: center;
-  z-index: 5;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.2s ease;
+  padding: 3px 14px;
+  white-space: nowrap;
 }
 
 .your-turn-label.turn-visible {
