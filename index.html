@@ -24,41 +24,49 @@
     </div>
 
     <div class="lobby-panel">
-      <!-- Profile Setup -->
-      <div class="profile-setup">
-        <h2 class="panel-title">YOUR PROFILE</h2>
-        <div class="input-group">
-          <label>NICKNAME</label>
-          <input type="text" id="input-nickname" maxlength="16" placeholder="Enter nickname..." value="Phantom">
-        </div>
-        <div class="input-group">
-          <label>AVATAR</label>
-          <div class="avatar-select-wrapper">
-            <div class="avatar-preview-box">
+      <div class="lobby-two-col">
+
+        <!-- LEFT: Profile Setup -->
+        <div class="profile-left">
+          <h2 class="panel-title">YOUR PROFILE</h2>
+          <div class="profile-row">
+            <!-- Big avatar on far left -->
+            <div class="avatar-preview-box avatar-big">
               <img id="avatar-preview-img" src="" alt="" style="display:none">
               <span id="avatar-preview-none">?</span>
             </div>
-            <select id="select-avatar">
-              <option value="">— Select Avatar —</option>
-            </select>
+            <!-- Nickname + dropdown to the right of avatar -->
+            <div class="profile-fields">
+              <div class="input-group">
+                <label>NICKNAME</label>
+                <input type="text" id="input-nickname" maxlength="16" placeholder="Enter nickname..." value="Phantom">
+              </div>
+              <div class="input-group">
+                <label>AVATAR</label>
+                <select id="select-avatar">
+                  <option value="">— Select Avatar —</option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="lobby-divider"></div>
+        <div class="lobby-divider-v"></div>
 
-      <!-- Host or Join -->
-      <div class="lobby-actions">
-        <div class="action-col">
-          <h3>HOST A GAME</h3>
-          <button class="btn-primary" id="btn-host">CREATE ROOM</button>
+        <!-- RIGHT: Host or Join -->
+        <div class="lobby-actions">
+          <div class="action-col">
+            <h3>HOST A GAME</h3>
+            <button class="btn-primary" id="btn-host">CREATE ROOM</button>
+          </div>
+          <div class="action-or">OR</div>
+          <div class="action-col">
+            <h3>JOIN A GAME</h3>
+            <input type="text" id="input-room-code" maxlength="8" placeholder="e.g. K7X2MP" class="code-input" autocomplete="off" autocorrect="off" spellcheck="false" style="text-transform:uppercase">
+            <button class="btn-secondary" id="btn-join">JOIN ROOM</button>
+          </div>
         </div>
-        <div class="action-or">OR</div>
-        <div class="action-col">
-          <h3>JOIN A GAME</h3>
-          <input type="text" id="input-room-code" maxlength="8" placeholder="e.g. K7X2MP" class="code-input" autocomplete="off" autocorrect="off" spellcheck="false" style="text-transform:uppercase">
-          <button class="btn-secondary" id="btn-join">JOIN ROOM</button>
-        </div>
+
       </div>
     </div>
 

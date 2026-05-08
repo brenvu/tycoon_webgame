@@ -499,10 +499,22 @@ class TycoonApp {
     UI.renderRevolution(g.revolutionActive);
     UI.renderTimer(this.isHost ? g.turnTimer : this._lastKnownTimer);
 
-    // During exchange phase, clear the main hand display (exchange renders its own)
+    // During exchange phase, clear the main hand display and pile
     if (g.phase === 'exchange') {
       const handEl = document.getElementById('hand-cards');
       if (handEl) handEl.innerHTML = '';
+      const pileEl = document.getElementById('card-pile');
+      if (pileEl) {
+        pileEl.innerHTML = '';
+        const emptyMsg = document.createElement('div');
+        emptyMsg.className = 'pile-empty-msg';
+        emptyMsg.id = 'pile-empty';
+        emptyMsg.textContent = '';
+        emptyMsg.style.display = 'none';
+        pileEl.appendChild(emptyMsg);
+      }
+      const pileInfo = document.getElementById('pile-info');
+      if (pileInfo) pileInfo.textContent = '';
       return;
     }
 

@@ -19,8 +19,7 @@ const UI = {
       el.style.cssText = Cards.getCardSpriteStyle(card);
       el.dataset.cardId = card.id;
 
-      // Tooltip only — no visible badges on card faces
-      el.title = Cards.cardDisplayName(card);
+      // No title tooltip — prevents browser tooltip overlay
     }
 
     return el;
@@ -40,20 +39,6 @@ const UI = {
       const isPlayable = playableIds ? playableIds.has(card.id) : true;
 
       const cardEl = this.createCardEl(card, { selected: isSelected, playable: isPlayable });
-
-      // Stable hover: add class on enter, remove with 200ms delay on leave
-      // The delay bridges the gap when the card physically moves under the cursor
-      let leaveTimer = null;
-      cardEl.addEventListener('mouseenter', () => {
-        if (leaveTimer) { clearTimeout(leaveTimer); leaveTimer = null; }
-        cardEl.classList.add('card-hovered');
-      });
-      cardEl.addEventListener('mouseleave', () => {
-        leaveTimer = setTimeout(() => {
-          cardEl.classList.remove('card-hovered');
-          leaveTimer = null;
-        }, 200);
-      });
 
       if (isPlayable) {
         cardEl.style.cursor = 'pointer';
@@ -165,7 +150,8 @@ const UI = {
     opponents.forEach(player => {
       const isActive = player.index === currentTurn;
       const el = document.createElement('div');
-      el.className = `opponent-panel ${isActive ? 'active-turn' : ''}`;
+      const hasPassed = player.passedThisTrick && !player.finished;
+      el.className = `opponent-panel ${isActive ? 'active-turn' : ''} ${hasPassed ? 'passed-turn' : ''}`;
 
       const avatarEl = this._makeAvatarEl(player.avatar, player.nickname, 'opponent-avatar');
 

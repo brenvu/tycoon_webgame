@@ -165,6 +165,49 @@ body::after {
 /* Profile Setup */
 .profile-setup { margin-bottom: 20px; }
 
+/* New two-column lobby layout */
+.lobby-two-col {
+  display: flex;
+  gap: 0;
+  align-items: stretch;
+  min-height: 220px;
+}
+
+.profile-left {
+  flex: 0 0 auto;
+  min-width: 340px;
+  padding-right: 24px;
+}
+
+.profile-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.avatar-big {
+  width: 180px !important;
+  height: 180px !important;
+  flex-shrink: 0 !important;
+  font-size: 64px !important;
+}
+
+.profile-fields {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 0;
+}
+
+.lobby-divider-v {
+  width: 1px;
+  background: linear-gradient(180deg, transparent, var(--p5-red), transparent);
+  margin: 0 24px;
+  flex-shrink: 0;
+  align-self: stretch;
+}
+
 .input-group { margin-bottom: 14px; }
 .input-group label {
   display: block;
@@ -204,6 +247,7 @@ input[type="text"]:focus {
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   overflow: hidden;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
 }
 
 .avatar-preview-box img {
@@ -238,18 +282,20 @@ select {
 
 select option { background: #1a1a1f; }
 
-/* Lobby divider */
+/* Lobby divider (horizontal, kept for compat) */
 .lobby-divider {
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--p5-red), transparent);
   margin: 20px 0;
 }
 
-/* Lobby actions */
+/* Lobby actions — right column */
 .lobby-actions {
   display: flex;
   gap: 20px;
   align-items: flex-start;
+  flex: 1;
+  padding-top: 36px; /* align with fields below panel-title */
 }
 
 .action-col {
@@ -563,6 +609,11 @@ select option { background: #1a1a1f; }
   box-shadow: 0 0 20px rgba(232,0,28,0.4), inset 0 0 20px rgba(232,0,28,0.05);
 }
 
+.opponent-panel.passed-turn {
+  border-color: rgba(120,120,160,0.7);
+  box-shadow: 0 0 14px rgba(100,100,150,0.3);
+}
+
 .opponent-panel.player-finished { opacity: 0.5; }
 
 .opponent-avatar {
@@ -659,27 +710,31 @@ select option { background: #1a1a1f; }
   flex-shrink: 0;
 }
 
+.active-turn-indicator,
+.active-turn-spacer {
+  /* Both take identical space in flex layout */
+  height: 26px;
+  line-height: 26px;
+  flex-shrink: 0;
+  order: -1;
+  width: calc(100% + 32px);
+  margin: 0 -16px 0 -16px;
+  align-self: stretch;
+}
+
 .active-turn-indicator {
   background: var(--p5-red);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 2px;
-  padding: 5px 0;
   color: white;
   white-space: nowrap;
   text-align: center;
-  width: calc(100% + 32px); /* bleed beyond padding */
-  margin: 0 -16px 6px -16px;
-  order: -1;
-  align-self: stretch;
-  flex-shrink: 0;
 }
 
-/* Placeholder when no turn indicator — keeps layout stable */
+/* Spacer is invisible — same height, no background */
 .active-turn-spacer {
-  height: 24px; /* same height as active-turn-indicator */
-  flex-shrink: 0;
-  order: -1;
+  background: transparent;
 }
 
 .finished-badge {
@@ -892,11 +947,11 @@ select option { background: #1a1a1f; }
 /* Hover transitions ONLY inside hand-cards, not on card creation */
 .hand-cards .card-el {
   transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
-  will-change: transform;
+  cursor: default;
 }
 
-/* JS hover class */
-.hand-cards .card-el.card-hovered:not(.unplayable):not(.selected) {
+/* Pure CSS hover — no JS needed, no bounce */
+.hand-cards .card-el:not(.unplayable):not(.selected):hover {
   transform: translateY(-14px);
   z-index: 10;
   box-shadow: 0 12px 28px rgba(0,0,0,0.75);
@@ -991,13 +1046,13 @@ select option { background: #1a1a1f; }
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(60, 60, 85, 0.95);
-  border-top: 1px solid rgba(255,255,255,0.12);
+  height: 20px;
+  line-height: 20px;
+  background: rgba(80, 80, 120, 0.95);
   font-size: 8px;
   font-weight: 900;
   letter-spacing: 2px;
-  padding: 4px 0;
-  color: #ccc;
+  color: #bbb;
   text-align: center;
   pointer-events: none;
 }
