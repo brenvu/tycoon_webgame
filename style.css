@@ -560,25 +560,23 @@ select option { background: #1a1a1f; }
   box-shadow: 0 0 24px rgba(132,204,22,0.45), inset 0 0 24px rgba(132,204,22,0.08);
 }
 
-/* Revolution label — always in DOM inside play-area, below pile */
+/* Revolution label — at top of play-area, fixed height so layout never shifts */
 .revolution-label {
-  height: 22px;                /* fixed height — always occupies space */
-  line-height: 22px;
-  min-width: 180px;
+  height: 30px;
+  line-height: 30px;
+  width: 100%;
   text-align: center;
   background: #84cc16;
   color: #000;
   font-family: var(--font-display);
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 900;
-  letter-spacing: 4px;
-  padding: 0 20px;
+  letter-spacing: 6px;
   white-space: nowrap;
   flex-shrink: 0;
-  /* Invisible by default — becomes visible when active */
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s ease, box-shadow 0.2s ease;
+  transition: opacity 0.2s ease;
 }
 
 .revolution-label.rev-visible {
@@ -601,21 +599,23 @@ select option { background: #1a1a1f; }
   box-shadow: 0 0 20px rgba(255,255,255,0.15), inset 0 0 12px rgba(255,255,255,0.05);
 }
 
-/* Your-turn label — always occupies space, visibility toggled */
+/* Your-turn label — absolute overlay at top of local-player-area, no layout impact */
 .your-turn-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 22px;
   line-height: 22px;
-  background: #d1d5db; /* bright light gray */
+  background: #d1d5db;
   color: #111111;
   font-family: var(--font-display);
   font-size: 9px;
   font-weight: 900;
   letter-spacing: 3px;
   text-align: center;
-  margin: -6px -12px 4px -12px;
-  width: calc(100% + 24px);
-  flex-shrink: 0;
-  /* Invisible by default */
+  z-index: 5;
+  pointer-events: none;
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -940,6 +940,7 @@ select option { background: #1a1a1f; }
   flex-direction: column;
   gap: 4px;
   flex-shrink: 0;
+  position: relative; /* for absolute your-turn-label */
 }
 
 .local-player-info {

@@ -163,10 +163,14 @@ function validatePlay(selectedCards, currentPlay, revolutionActive) {
 
   const count = selectedCards.length;
 
-  // All-8 stop: ends turn regardless
+  // All-8 stop: count must match current play (or any count on empty pile)
   const allEights = selectedCards.every(c => is8Stop(c));
   if (allEights) {
-    return { valid: true, isStop: true };
+    // On empty pile: any number of 8s is valid
+    if (!currentPlay) return { valid: true, isStop: true };
+    // On existing play: must match the current play count
+    if (selectedCards.length === currentPlay.count) return { valid: true, isStop: true };
+    // Wrong count — fall through to normal validation (will fail count check below)
   }
 
   // If pile is empty
