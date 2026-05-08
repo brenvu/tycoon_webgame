@@ -308,8 +308,9 @@ function rankLabel(rank) {
     'tycoon':   '👑 TYCOON',
     'rich':     '🎩 RICH',
     'poor':     '⚔️ POOR',
-    'commoner': '⚔️ POOR', // legacy alias
-    'beggar':   '💀 BEGGAR'
+    'commoner': '🔵 COMMONER',
+    'beggar':   '🩶 BEGGAR',
+    'bankrupt': '💀 BANKRUPT'
   };
   return labels[rank] || rank.toUpperCase();
 }
@@ -318,9 +319,10 @@ function rankColor(rank) {
   const colors = {
     'tycoon':   '#ffd700',  // gold
     'rich':     '#4ade80',  // bright green
-    'poor':     '#9ca3af',  // gray
+    'poor':     '#c084fc',  // light purple
     'commoner': '#67e8f9',  // cyan blue
-    'beggar':   '#a855f7'   // pastel purple
+    'beggar':   '#9ca3af',  // gray
+    'bankrupt': '#ef4444'   // red (warning)
   };
   return colors[rank] || '#fff';
 }

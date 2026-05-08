@@ -382,8 +382,8 @@ const UI = {
       const row = document.createElement('div');
       row.className = 'ranking-row';
       const pos = p.finishPosition || (i + 1);
-      const rankName = p.rank || 'poor';
-      const pts = { tycoon: 30, rich: 20, poor: 10, commoner: 10, beggar: 0 }[rankName] || 0;
+      const rankName = p.rank || 'commoner';
+      const pts = { tycoon: 30, rich: 20, poor: 10, commoner: 10, beggar: 0, bankrupt: 0 }[rankName] || 0;
 
       row.innerHTML = `
         <div class="rank-pos">#${pos}</div>

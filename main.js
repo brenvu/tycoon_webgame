@@ -429,6 +429,9 @@ class TycoonApp {
 
     // Screen Switching
     if (state.phase === 'exchange') {
+      // Reset received modal state for new exchange cycle
+      this._receivedModalShown = false;
+      this._pendingReceivedCardIds = null;
       UI.showScreen('game');
       this.renderExchangeOnGameScreen();
     } else if (state.phase === 'playing') {
@@ -467,6 +470,9 @@ class TycoonApp {
     if (this.isHost) this._broadcastFullState();
 
     if (phase === 'exchange') {
+      // Reset received modal state so next round's modal can show
+      this._receivedModalShown = false;
+      this._pendingReceivedCardIds = null;
       UI.showScreen('game');
       this.renderExchangeOnGameScreen();
     }
