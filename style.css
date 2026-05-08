@@ -553,51 +553,37 @@ select option { background: #1a1a1f; }
   position: relative;
   display: flex;
   flex-direction: column;
+  overflow: visible; /* let revolution label hang below */
 }
 
 .game-upper.revolution-active {
-  outline: 2px solid #84cc16;
-  box-shadow: 0 0 24px rgba(132,204,22,0.45), inset 0 0 24px rgba(132,204,22,0.08);
+  border-bottom: 3px solid #84cc16;
+  box-shadow: 0 0 20px rgba(132,204,22,0.4), 0 4px 16px rgba(132,204,22,0.2);
+  outline: 1px solid rgba(132,204,22,0.3);
 }
 
-/* Revolution label — thin bar across full width with centered badge */
+/* Revolution label — hangs below the green bottom border of game-upper */
 .revolution-label {
-  height: 22px;
-  flex-shrink: 0;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  /* Position: just below the bottom border of game-upper */
+  align-self: center;
   position: relative;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-}
-
-/* The thin bar line */
-.revolution-label::before {
-  content: '';
-  position: absolute;
-  left: 0; right: 0;
-  top: 50%;
-  height: 2px;
-  background: #84cc16;
-  box-shadow: 0 0 6px rgba(132,204,22,0.7);
-}
-
-/* The centered badge */
-.revolution-label::after {
-  content: 'REVOLUTION';
-  position: relative;
-  z-index: 1;
+  z-index: 30;
+  /* Negative margin pulls it to overlap the border from below */
+  margin-top: -1px;
+  margin-bottom: 0;
   background: #84cc16;
   color: #000;
   font-family: var(--font-display);
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 5px;
-  padding: 3px 18px;
+  padding: 4px 20px;
   white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  /* Clip the top edge so it looks connected to the bar above */
+  clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 100%, 8px 100%);
 }
 
 .revolution-label.rev-visible {
@@ -606,9 +592,17 @@ select option { background: #1a1a1f; }
   animation: revLabelPulse 1.2s ease-in-out infinite alternate;
 }
 
+/* When hidden, collapse height so it doesn't take layout space */
+.revolution-label:not(.rev-visible) {
+  padding-top: 0;
+  padding-bottom: 0;
+  height: 0;
+  overflow: hidden;
+}
+
 @keyframes revLabelPulse {
-  from { filter: drop-shadow(0 0 4px rgba(132,204,22,0.6)); }
-  to   { filter: drop-shadow(0 0 12px rgba(132,204,22,1)); }
+  from { box-shadow: 0 2px 8px rgba(132,204,22,0.6); }
+  to   { box-shadow: 0 4px 18px rgba(132,204,22,1); }
 }
 
 /* Old banner kept hidden */
@@ -620,45 +614,26 @@ select option { background: #1a1a1f; }
   box-shadow: 0 0 20px rgba(255,255,255,0.15), inset 0 0 12px rgba(255,255,255,0.05);
 }
 
-/* Your-turn label — absolute bar at top of local-player-area, no layout impact */
+/* Your-turn label — hangs below the red border-top of local-player-area */
 .your-turn-label {
   position: absolute;
-  top: -2px; /* sit on the red border */
-  left: 0;
-  right: 0;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  /* Sit just below the top border (border is 2px) */
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 10;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.2s ease;
-}
-
-/* Thin bar */
-.your-turn-label::before {
-  content: '';
-  position: absolute;
-  left: 0; right: 0;
-  top: 50%;
-  height: 2px;
-  background: #d1d5db;
-}
-
-/* Centered badge */
-.your-turn-label::after {
-  content: '▶ YOUR TURN';
-  position: relative;
-  z-index: 1;
   background: #d1d5db;
   color: #111;
   font-family: var(--font-display);
   font-size: 9px;
   font-weight: 900;
   letter-spacing: 3px;
-  padding: 3px 14px;
+  padding: 4px 16px;
   white-space: nowrap;
+  clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 100%, 0 100%);
 }
 
 .your-turn-label.turn-visible {
