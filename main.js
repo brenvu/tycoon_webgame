@@ -97,10 +97,7 @@ class TycoonApp {
     document.getElementById('btn-play').addEventListener('click', () => this.submitPlay());
     document.getElementById('btn-pass').addEventListener('click', () => this.submitPass());
     document.getElementById('btn-confirm-exchange').addEventListener('click', () => this.submitExchangeFromGame());
-    const modalOk = document.getElementById('btn-modal-received-ok');
-    if (modalOk) modalOk.addEventListener('click', () => {
-      document.getElementById('modal-received')?.classList.add('hidden');
-    });
+    // btn-modal-received-ok is handled exclusively in _showReceivedCardsToast
 
     document.getElementById('input-room-code').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.joinGame();
@@ -402,8 +399,13 @@ class TycoonApp {
         lp.finishPosition = sp.finishPosition;
         lp.handCount      = sp.handCount || 0;
         lp.passedThisTrick = sp.passedThisTrick || false;
-        if (sp.hand && sp.hand.length > 0) lp.hand = sp.hand;
-        else if (lp.handCount === 0) lp.hand = [];
+        if (sp.hand && sp.hand.length > 0) {
+          lp.hand = sp.hand;
+          lp.handCount = sp.hand.length; // keep in sync
+        } else if (lp.handCount === 0) {
+          lp.hand = [];
+        }
+        // Always store handCount so getState() fallback works for other players
       });
       while (g.players.length > state.players.length) g.players.pop();
     }
@@ -578,19 +580,21 @@ class TycoonApp {
   }
 
   _showReceivedCardsToast() {
-    if (this.game.round <= 1) return;
-    // Guard: only show once per exchange — cleared when modal is dismissed
     if (this._receivedModalShown) return;
     const hand = this.game.getLocalHand() || [];
-    const newCards = hand.filter(c => c.isNew);
+    // Snapshot received cards immediately before any async state updates
+    const newCards = hand.filter(c => c.isNew).map(c => ({ ...c }));
     if (newCards.length === 0) return;
+
+    // Clear isNew immediately so state syncs don't affect the display
+    hand.forEach(c => { delete c.isNew; });
 
     this._receivedModalShown = true;
 
     const modal = document.getElementById('modal-received');
     const cardsContainer = document.getElementById('modal-received-cards');
     const okBtn = document.getElementById('btn-modal-received-ok');
-    if (!modal || !cardsContainer) return;
+    if (!modal || !cardsContainer || !okBtn) return;
 
     cardsContainer.innerHTML = '';
     newCards.forEach(card => {
@@ -601,13 +605,13 @@ class TycoonApp {
 
     modal.classList.remove('hidden');
 
-    const dismiss = () => {
+    // Replace button with a clone to remove ALL previous listeners
+    const freshBtn = okBtn.cloneNode(true);
+    okBtn.parentNode.replaceChild(freshBtn, okBtn);
+    freshBtn.addEventListener('click', () => {
       modal.classList.add('hidden');
-      hand.forEach(c => { delete c.isNew; });
       this._receivedModalShown = false;
-      okBtn.removeEventListener('click', dismiss);
-    };
-    okBtn.addEventListener('click', dismiss);
+    }, { once: true });
   }
 
   renderExchangeOnGameScreen() {

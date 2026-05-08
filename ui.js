@@ -199,25 +199,27 @@ const UI = {
         el.appendChild(doneEl);
       }
 
-      // Turn indicator at TOP of the panel content (not above it, so it's never clipped)
+      // Turn indicator always present at top — spacer keeps layout stable when inactive
+      const turnEl = document.createElement('div');
       if (isActive) {
-        const turnEl = document.createElement('div');
         turnEl.className = 'active-turn-indicator';
         turnEl.textContent = '▶ THEIR TURN';
-        el.appendChild(turnEl);
+      } else {
+        turnEl.className = 'active-turn-spacer';
       }
+      el.appendChild(turnEl);
 
-      // Pass badge overlaid on avatar — fixed position, doesn't affect layout
+      el.appendChild(avatarEl);
+      el.appendChild(info);
+
+      // Pass badge — absolute at very bottom of panel, outside normal flow
       if (player.passedThisTrick && !player.finished) {
         const passLabel = document.createElement('div');
         passLabel.className = 'pass-badge';
         passLabel.textContent = 'PASSED';
-        avatarEl.style.position = 'relative';
-        avatarEl.appendChild(passLabel);
+        el.appendChild(passLabel);
       }
 
-      el.appendChild(avatarEl);
-      el.appendChild(info);
       area.appendChild(el);
     });
   },

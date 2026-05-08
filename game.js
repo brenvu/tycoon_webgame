@@ -498,12 +498,14 @@ class TycoonGame {
       this._log(`${player.nickname} → ${rank.toUpperCase()} (+${pts} pts)`);
     });
 
-    this._notify();
-
-    // Only increment round if not on final round (fix: was resetting after final round)
+    // Increment round BEFORE notify so broadcast has the correct value
     if (this.round < this.totalRounds) {
       this.round++;
-    } else {
+    }
+
+    this._notify();
+
+    if (this.round > this.totalRounds) {
       setTimeout(() => this.endGame(), 3000);
     }
   }
