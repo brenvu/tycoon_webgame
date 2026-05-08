@@ -21,6 +21,7 @@ class TycoonApp {
     this._exchangeSubmitted = false;
     this._lastSeenLogSeq = 0;
     this._pendingReceivedCards = null;
+    this._pendingReceivedCardIds = null;
     this._prevPhase = null;
 
     this.game.onStateChange = (state) => this.onGameStateChange(state);
@@ -338,14 +339,11 @@ class TycoonApp {
         }
         break;
       case 'received_cards':
-        // One-time message from host telling this guest what cards they received
+        // Store card IDs — will be shown once hand arrives via state_sync
         if (!this.isHost && msg.cardIds && msg.cardIds.length > 0 && !this._receivedModalShown) {
-          const hand = this.game.getLocalHand() || [];
-          msg.cardIds.forEach(id => {
-            const card = hand.find(c => c.id === id);
-            if (card) card.isNew = true;
-          });
-          this._showReceivedCardsToast();
+          this._pendingReceivedCardIds = msg.cardIds;
+          // Try immediately in case state_sync already arrived
+          this._tryShowReceivedModal();
         }
         break;
       case 'play_error':
@@ -433,8 +431,10 @@ class TycoonApp {
     } else if (state.phase === 'playing') {
       this._hideExchangeBanner();
       UI.showScreen('game');
-      // NOTE: guests do NOT call _showReceivedCardsToast here — they get
-      // the 'received_cards' dedicated message from the host instead
+      // Try to show received cards modal if pending card IDs have now arrived
+      if (!this.isHost && this._pendingReceivedCardIds) {
+        this._tryShowReceivedModal();
+      }
     } else if (state.phase === 'round_end') {
       this._stopClientTimer();
       UI.showScreen('round-end');
@@ -589,6 +589,25 @@ class TycoonApp {
     if (playBtn) playBtn.classList.remove('hidden');
     if (passBtn) passBtn.classList.remove('hidden');
     this._exchangeSubmitted = false; // reset for next round
+  }
+
+  _tryShowReceivedModal() {
+    if (this._receivedModalShown || !this._pendingReceivedCardIds) return;
+    const hand = this.game.getLocalHand() || [];
+    if (hand.length === 0) return; // hand not arrived yet — wait
+
+    // Stamp isNew on matching cards
+    const ids = this._pendingReceivedCardIds;
+    const matched = [];
+    ids.forEach(id => {
+      const card = hand.find(c => c.id === id);
+      if (card) { card.isNew = true; matched.push(card); }
+    });
+
+    if (matched.length === 0) return; // cards not in hand yet — wait for next state sync
+
+    this._pendingReceivedCardIds = null; // consume
+    this._showReceivedCardsToast();
   }
 
   _showReceivedCardsToast() {

@@ -23,37 +23,35 @@
       <div class="logo-sub">PERSONA 5 ROYAL</div>
     </div>
 
-    <div class="lobby-panel">
-      <div class="lobby-two-col">
+    <!-- Two side-by-side panels matching wireframe -->
+    <div class="lobby-panels-row">
 
-        <!-- LEFT: Profile Setup -->
-        <div class="profile-left">
-          <h2 class="panel-title">YOUR PROFILE</h2>
-          <div class="profile-row">
-            <!-- Big avatar on far left -->
-            <div class="avatar-preview-box avatar-big">
-              <img id="avatar-preview-img" src="" alt="" style="display:none">
-              <span id="avatar-preview-none">?</span>
+      <!-- LEFT PANEL: Profile (avatar + fields) -->
+      <div class="lobby-panel lobby-panel-profile">
+        <h2 class="panel-title">YOUR PROFILE</h2>
+        <div class="profile-row">
+          <div class="avatar-preview-box avatar-big">
+            <img id="avatar-preview-img" src="" alt="" style="display:none">
+            <span id="avatar-preview-none">?</span>
+          </div>
+          <div class="profile-fields">
+            <div class="input-group">
+              <label>NICKNAME</label>
+              <input type="text" id="input-nickname" maxlength="16" placeholder="Enter nickname..." value="Phantom">
             </div>
-            <!-- Nickname + dropdown to the right of avatar -->
-            <div class="profile-fields">
-              <div class="input-group">
-                <label>NICKNAME</label>
-                <input type="text" id="input-nickname" maxlength="16" placeholder="Enter nickname..." value="Phantom">
-              </div>
-              <div class="input-group">
-                <label>AVATAR</label>
-                <select id="select-avatar">
-                  <option value="">— Select Avatar —</option>
-                </select>
-              </div>
+            <div class="input-group">
+              <label>AVATAR</label>
+              <select id="select-avatar">
+                <option value="">— Select Avatar —</option>
+              </select>
             </div>
           </div>
         </div>
+      </div>
 
-        <div class="lobby-divider-v"></div>
-
-        <!-- RIGHT: Host or Join -->
+      <!-- RIGHT PANEL: Lobby actions -->
+      <div class="lobby-panel lobby-panel-actions">
+        <h2 class="panel-title">PLAY</h2>
         <div class="lobby-actions">
           <div class="action-col">
             <h3>HOST A GAME</h3>
@@ -66,8 +64,8 @@
             <button class="btn-secondary" id="btn-join">JOIN ROOM</button>
           </div>
         </div>
-
       </div>
+
     </div>
 
     <!-- Waiting Room -->
