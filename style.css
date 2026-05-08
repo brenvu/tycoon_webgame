@@ -553,46 +553,47 @@ select option { background: #1a1a1f; }
   position: relative;
   display: flex;
   flex-direction: column;
-  overflow: visible; /* let revolution label hang below */
+  overflow: visible;
 }
 
 .game-upper.revolution-active {
   border-bottom: 3px solid #84cc16;
-  box-shadow: 0 0 20px rgba(132,204,22,0.4), 0 4px 16px rgba(132,204,22,0.2);
-  outline: 1px solid rgba(132,204,22,0.3);
+  box-shadow: 0 0 20px rgba(132,204,22,0.35), inset 0 0 20px rgba(132,204,22,0.05);
 }
 
-/* Revolution label — plain rectangle hanging below the green border */
+/* Revolution label — ABSOLUTE, centered on bottom border, hanging downward */
+/* Does NOT affect layout at all */
 .revolution-label {
-  align-self: center;
-  position: relative;
-  z-index: 30;
+  position: absolute;
+  bottom: -14px;       /* half its height, so it straddles the bottom border */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
   background: #84cc16;
   color: #000;
   font-family: var(--font-display);
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 5px;
-  padding: 5px 24px;
+  padding: 4px 22px;
   white-space: nowrap;
-  opacity: 0;
-  height: 0;
-  overflow: hidden;
   pointer-events: none;
-  transition: opacity 0.15s ease;
+  /* Hidden by default — no layout effect */
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.15s ease, visibility 0.15s;
 }
 
 .revolution-label.rev-visible {
+  visibility: visible;
   opacity: 1;
-  height: auto;
-  overflow: visible;
   pointer-events: auto;
   animation: revLabelPulse 1.2s ease-in-out infinite alternate;
 }
 
 @keyframes revLabelPulse {
   from { box-shadow: 0 2px 8px rgba(132,204,22,0.5); }
-  to   { box-shadow: 0 4px 18px rgba(132,204,22,1); }
+  to   { box-shadow: 0 4px 20px rgba(132,204,22,1); }
 }
 
 /* Old banner kept hidden */
@@ -604,27 +605,29 @@ select option { background: #1a1a1f; }
   box-shadow: 0 0 20px rgba(255,255,255,0.15), inset 0 0 12px rgba(255,255,255,0.05);
 }
 
-/* Your-turn label — plain rectangle, absolute below red top border */
+/* Your-turn label — absolute, centered on the red top border, hanging downward */
 .your-turn-label {
   position: absolute;
-  top: 2px;
+  top: -1px;           /* sits right on the top border */
   left: 50%;
   transform: translateX(-50%);
-  z-index: 10;
+  z-index: 50;
   pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.15s ease;
   background: #d1d5db;
   color: #111;
   font-family: var(--font-display);
   font-size: 9px;
   font-weight: 900;
   letter-spacing: 3px;
-  padding: 5px 18px;
+  padding: 4px 18px;
   white-space: nowrap;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.15s ease, visibility 0.15s;
 }
 
 .your-turn-label.turn-visible {
+  visibility: visible;
   opacity: 1;
 }
 
@@ -939,10 +942,10 @@ select option { background: #1a1a1f; }
 .local-player-area {
   background: linear-gradient(to top, #0a0a0e, var(--p5-dark-bg));
   border-top: 2px solid var(--p5-red);
-  padding: 6px 12px 8px;
+  padding: 4px 12px 4px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   flex-shrink: 0;
   position: relative; /* for absolute your-turn-label */
 }
@@ -954,8 +957,8 @@ select option { background: #1a1a1f; }
 }
 
 .local-avatar-wrap {
-  width: clamp(64px, 8vw, 96px);
-  height: clamp(64px, 8vw, 96px);
+  width: 72px;
+  height: 72px;
   border: 2px solid var(--p5-red);
   overflow: hidden;
   flex-shrink: 0;
@@ -968,13 +971,13 @@ select option { background: #1a1a1f; }
   display: flex; align-items: center; justify-content: center;
   background: var(--p5-red);
   font-family: var(--font-display);
-  font-size: clamp(24px, 4vw, 40px);
+  font-size: 28px;
 }
 
 .local-player-details { flex: 1; min-width: 0; }
 
 .local-nickname {
-  font-size: clamp(13px, 1.5vw, 18px);
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: 2px;
   color: var(--p5-white);
@@ -985,7 +988,7 @@ select option { background: #1a1a1f; }
 
 .local-rank-badge {
   display: inline-block;
-  font-size: clamp(9px, 1vw, 12px);
+  font-size: 10px;
   letter-spacing: 3px;
   font-weight: 700;
   padding: 2px 8px;
@@ -993,20 +996,20 @@ select option { background: #1a1a1f; }
   margin: 2px 0;
 }
 
-.local-cards-left { font-size: clamp(10px, 1vw, 12px); color: #aaa; letter-spacing: 1px; }
+.local-cards-left { font-size: 11px; color: #aaa; letter-spacing: 1px; }
 
 /* Hand area */
 .hand-area {
   overflow-x: auto;
   overflow-y: visible;
-  padding: 8px 0;
+  padding: 2px 0;
 }
 
 .hand-cards {
   display: flex;
   align-items: flex-end;
-  padding: 20px 8px 8px;
-  height: calc(var(--card-h) + 36px); /* fixed height — never reflows */
+  padding: 4px 8px 4px;
+  height: calc(var(--card-h) + 16px);
   width: max-content;
   min-width: 100%;
   justify-content: center;
