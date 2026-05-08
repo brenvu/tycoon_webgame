@@ -316,11 +316,11 @@ function rankLabel(rank) {
 
 function rankColor(rank) {
   const colors = {
-    'tycoon':   '#ffd700',
-    'rich':     '#c0c0c0',
-    'poor':     '#aaaaaa',
-    'commoner': '#aaaaaa', // legacy alias
-    'beggar':   '#cc3333'
+    'tycoon':   '#ffd700',  // gold
+    'rich':     '#4ade80',  // bright green
+    'poor':     '#9ca3af',  // gray
+    'commoner': '#67e8f9',  // cyan blue
+    'beggar':   '#a855f7'   // pastel purple
   };
   return colors[rank] || '#fff';
 }

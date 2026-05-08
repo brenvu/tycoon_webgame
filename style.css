@@ -165,47 +165,48 @@ body::after {
 /* Profile Setup */
 .profile-setup { margin-bottom: 20px; }
 
-/* New two-column lobby layout */
-.lobby-two-col {
+/* Lobby two-panel row layout */
+.lobby-panels-row {
   display: flex;
-  gap: 0;
+  flex-direction: row;
+  gap: 24px;
   align-items: stretch;
-  min-height: 220px;
+  width: 100%;
 }
 
-.profile-left {
+.lobby-panel-profile {
   flex: 0 0 auto;
-  min-width: 340px;
-  padding-right: 24px;
+  width: 480px;
+}
+
+.lobby-panel-actions {
+  flex: 1;
+  min-width: 280px;
 }
 
 .profile-row {
   display: flex;
+  flex-direction: row;
   align-items: flex-start;
-  gap: 20px;
+  gap: 24px;
+  margin-top: 12px;
 }
 
 .avatar-big {
   width: 180px !important;
   height: 180px !important;
+  min-width: 180px !important;
   flex-shrink: 0 !important;
-  font-size: 64px !important;
+  font-size: 72px !important;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
 }
 
 .profile-fields {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
   gap: 0;
-}
-
-.lobby-divider-v {
-  width: 1px;
-  background: linear-gradient(180deg, transparent, var(--p5-red), transparent);
-  margin: 0 24px;
-  flex-shrink: 0;
-  align-self: stretch;
 }
 
 .input-group { margin-bottom: 14px; }
@@ -289,13 +290,13 @@ select option { background: #1a1a1f; }
   margin: 20px 0;
 }
 
-/* Lobby actions — right column */
+/* Lobby actions */
 .lobby-actions {
   display: flex;
+  flex-direction: row;
   gap: 20px;
   align-items: flex-start;
-  flex: 1;
-  padding-top: 36px; /* align with fields below panel-title */
+  margin-top: 12px;
 }
 
 .action-col {
@@ -588,7 +589,7 @@ select option { background: #1a1a1f; }
   flex-direction: column;
   align-items: center;
   gap: 0;
-  padding: 0 16px 28px; /* 28px bottom padding keeps count above pass badge */
+  padding: 0 16px 36px; /* 36px bottom padding keeps count clearly above pass badge */
   background: var(--p5-panel);
   border: 1px solid var(--p5-panel-border);
   width: 148px;
@@ -874,10 +875,11 @@ select option { background: #1a1a1f; }
 }
 
 .local-avatar-wrap {
-  width: 64px; height: 64px;
+  width: 128px; height: 128px;
   border: 2px solid var(--p5-red);
   overflow: hidden;
   flex-shrink: 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
 }
 
 .local-avatar-img { width: 100%; height: 100%; object-fit: cover; }
@@ -886,13 +888,13 @@ select option { background: #1a1a1f; }
   display: flex; align-items: center; justify-content: center;
   background: var(--p5-red);
   font-family: var(--font-display);
-  font-size: 28px;
+  font-size: 52px;
 }
 
 .local-player-details { flex: 1; }
 
 .local-nickname {
-  font-size: 13px;
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: 2px;
   color: var(--p5-white);
@@ -900,15 +902,15 @@ select option { background: #1a1a1f; }
 
 .local-rank-badge {
   display: inline-block;
-  font-size: 10px;
+  font-size: 13px;
   letter-spacing: 3px;
   font-weight: 700;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border: 1px solid;
-  margin: 2px 0;
+  margin: 4px 0;
 }
 
-.local-cards-left { font-size: 11px; color: #888; letter-spacing: 1px; }
+.local-cards-left { font-size: 13px; color: #aaa; letter-spacing: 1px; }
 
 /* Hand area */
 .hand-area {

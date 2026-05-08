@@ -413,35 +413,28 @@ class TycoonGame {
       player.finishPosition = pos;
       this._log(`🏆 ${player.nickname} finished ${pos}${ordinal(pos)}!`);
 
-      // Tycoon bankruptcy check: if tycoon didn't finish 1st in round 2+
-      if (this.round > 1 && pos > 1) {
-        const tycoon = this.players.find(p => p.rank === 'tycoon');
-        if (tycoon && tycoon.id === player.id) {
-          // Tycoon just finished NOT 1st — immediate bankruptcy mid-round
-          this._log(`💀 BANKRUPTCY! ${player.nickname} lost Tycoon status — demoted to Beggar!`);
-          player.rank = 'beggar';
-          player.bankrupted = true;
-          this.bankruptTycoonId = player.id; // will sit out NEXT round too
-        } else if (tycoon && !tycoon.finished && pos === 1) {
-          // Someone else finished 1st before the tycoon — tycoon is now doomed
-          // but we wait for them to finish to apply bankruptcy
-          tycoon._willBankrupt = true;
+      // Mid-round tycoon bankruptcy (round 2+ only):
+      // If the CURRENT tycoon didn't finish 1st, they are immediately demoted
+      // and can no longer play this round (they already finished so this is automatic)
+      if (this.round > 1) {
+        const tycoon = this.players.find(p => p.rank === 'tycoon' && !p.bankrupted);
+        if (tycoon) {
+          if (pos === 1 && tycoon.id !== player.id) {
+            // Someone ELSE finished 1st — tycoon is doomed; mark for when they finish
+            tycoon._willBankruptMidRound = true;
+          } else if (tycoon.id === player.id && pos > 1) {
+            // Tycoon finished but NOT 1st — immediate bankruptcy
+            this._applyTycoonBankruptcy(player);
+          } else if (player._willBankruptMidRound && player.rank === 'tycoon') {
+            // Deferred: tycoon finally finishes (not 1st, since pos>1 already set above)
+            this._applyTycoonBankruptcy(player);
+          }
         }
-      }
-
-      // Apply deferred bankruptcy when tycoon eventually finishes
-      if (player._willBankrupt && player.rank === 'tycoon') {
-        this._log(`💀 BANKRUPTCY! ${player.nickname} lost Tycoon status — demoted to Beggar!`);
-        player.rank = 'beggar';
-        player.bankrupted = true;
-        player._willBankrupt = false;
-        this.bankruptTycoonId = player.id;
       }
 
       // Check if round is over (all but last player finished)
       const unfinished = this.players.filter(p => !p.finished);
       if (unfinished.length <= 1) {
-        // Last player auto-finishes
         if (unfinished.length === 1) {
           unfinished[0].finished = true;
           this.finishOrder.push(this.players.indexOf(unfinished[0]));
@@ -450,6 +443,15 @@ class TycoonGame {
         this.endRound();
       }
     }
+  }
+
+  _applyTycoonBankruptcy(player) {
+    this._log(`💀 BANKRUPTCY! ${player.nickname} lost Tycoon status — demoted to Beggar!`);
+    player.rank = 'beggar';
+    player.bankrupted = true;
+    player._willBankruptMidRound = false;
+    // This player sits out the NEXT round as well
+    this.bankruptTycoonId = player.id;
   }
 
   // ---- Round End ----
@@ -465,47 +467,39 @@ class TycoonGame {
       rank: rankNames[pos] ?? 'beggar'
     }));
 
-    // Tycoon bankruptcy (round 2+): if prev tycoon didn't finish 1st, they become beggar
-    // and the last finisher is bumped from beggar to poor
-    if (this.round > 1) {
-      const tycoonPlayer = this.players.find(p => p.rank === 'tycoon');
-      if (tycoonPlayer) {
-        const tycoonIdx = this.players.indexOf(tycoonPlayer);
-        const finishedFirst = this.finishOrder[0] === tycoonIdx;
-        if (!finishedFirst) {
-          this._log(`💀 BANKRUPTCY! ${tycoonPlayer.nickname} (Tycoon) failed to defend — becomes Beggar!`);
-          const tycoonAssign = rankAssignment.find(r => r.playerIdx === tycoonIdx);
-          if (tycoonAssign) {
-            // Last finisher gets bumped to poor (not beggar) since bankrupt tycoon takes that slot
-            const lastAssign = rankAssignment[rankAssignment.length - 1];
-            if (lastAssign && lastAssign.playerIdx !== tycoonIdx) {
-              lastAssign.rank = 'poor';
-            }
-            tycoonAssign.rank = 'beggar';
-          }
-          // Mark this player to auto-finish next round
-          this.bankruptTycoonId = tycoonPlayer.id;
-        }
-      }
-    }
-
-    // Apply ranks and points
+    // Apply ranks and points from finish positions
+    // Note: if tycoon went bankrupt mid-round, their rank was already set to 'beggar'
+    // by _applyTycoonBankruptcy — we preserve that and adjust other rankings
+    const midRoundBankrupt = this.players.find(p => p.bankrupted && p.rank === 'beggar');
     rankAssignment.forEach(({ playerIdx, rank }) => {
       const player = this.players[playerIdx];
-      const pts = POINTS[rank] || 0;
+      // Don't overwrite a mid-round bankruptcy demotion
+      if (player.bankrupted) {
+        // Keep 'beggar' rank; but bump last-place finisher to 'poor' so ranks are unique
+        const lastAssign = rankAssignment[rankAssignment.length - 1];
+        if (lastAssign && lastAssign.playerIdx !== playerIdx && rank === 'beggar') {
+          lastAssign.rank = 'poor';
+        }
+      } else {
+        player.rank = rank;
+      }
+      const pts = POINTS[player.rank] || 0;
       player.score += pts;
-      player.rank = rank;
-      this._log(`${player.nickname} → ${rank.toUpperCase()} (+${pts} pts)`);
+      this._log(`${player.nickname} → ${player.rank.toUpperCase()} (+${pts} pts)`);
     });
 
+    // Clear per-round bankruptcy tracking (bankruptTycoonId carries into next round)
+    this.players.forEach(p => { p._willBankruptMidRound = false; });
+
     // Increment round BEFORE notify so broadcast has the correct value
-    if (this.round < this.totalRounds) {
+    const isLastRound = (this.round >= this.totalRounds);
+    if (!isLastRound) {
       this.round++;
     }
 
     this._notify();
 
-    if (this.round > this.totalRounds) {
+    if (isLastRound) {
       setTimeout(() => this.endGame(), 3000);
     }
   }

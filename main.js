@@ -357,6 +357,7 @@ class TycoonApp {
     const g = this.game;
     const prevTurn  = g.currentTurn;
     const prevTimer = g.turnTimer;
+    const prevPhase = g.phase;
 
     g.round            = state.round;
     g.currentTurn      = state.currentTurn;
@@ -408,7 +409,9 @@ class TycoonApp {
       while (g.players.length > state.players.length) g.players.pop();
     }
 
-    if (g.phase === 'playing' && (g.currentTurn !== prevTurn || Math.abs(g.turnTimer - prevTimer) > 2)) {
+    // Start client timer if turn changed, timer jumped, OR phase just became 'playing'
+    const phaseJustStarted = g.phase === 'playing' && prevPhase !== 'playing';
+    if (g.phase === 'playing' && (phaseJustStarted || g.currentTurn !== prevTurn || Math.abs(g.turnTimer - prevTimer) > 2)) {
       this._startClientTimer(g.turnTimer);
     }
 
