@@ -560,26 +560,36 @@ select option { background: #1a1a1f; }
   box-shadow: 0 0 24px rgba(132,204,22,0.45), inset 0 0 24px rgba(132,204,22,0.08);
 }
 
+/* Revolution label — always in DOM inside play-area, below pile */
 .revolution-label {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
+  height: 22px;                /* fixed height — always occupies space */
+  line-height: 22px;
+  min-width: 180px;
+  text-align: center;
   background: #84cc16;
   color: #000;
   font-family: var(--font-display);
   font-size: 11px;
   font-weight: 900;
-  letter-spacing: 3px;
-  padding: 3px 16px;
-  z-index: 20;
+  letter-spacing: 4px;
+  padding: 0 20px;
   white-space: nowrap;
+  flex-shrink: 0;
+  /* Invisible by default — becomes visible when active */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, box-shadow 0.2s ease;
+}
+
+.revolution-label.rev-visible {
+  opacity: 1;
+  pointer-events: auto;
   animation: revLabelPulse 1s ease-in-out infinite alternate;
 }
 
 @keyframes revLabelPulse {
-  from { box-shadow: 0 0 8px rgba(132,204,22,0.6); }
-  to   { box-shadow: 0 0 20px rgba(132,204,22,1); }
+  from { box-shadow: 0 0 8px rgba(132,204,22,0.5); }
+  to   { box-shadow: 0 0 22px rgba(132,204,22,1); }
 }
 
 /* Old banner kept hidden */
@@ -587,21 +597,31 @@ select option { background: #1a1a1f; }
 
 /* Your-turn glow on local player area */
 .local-player-area.your-turn {
-  outline: 1px solid rgba(255,255,255,0.35);
-  box-shadow: 0 0 20px rgba(255,255,255,0.12), inset 0 0 16px rgba(255,255,255,0.04);
+  outline: 1px solid rgba(255,255,255,0.4);
+  box-shadow: 0 0 20px rgba(255,255,255,0.15), inset 0 0 12px rgba(255,255,255,0.05);
 }
 
+/* Your-turn label — always occupies space, visibility toggled */
 .your-turn-label {
-  background: rgba(255,255,255,0.12);
-  border-bottom: 1px solid rgba(255,255,255,0.2);
+  height: 22px;
+  line-height: 22px;
+  background: #d1d5db; /* bright light gray */
+  color: #111111;
   font-family: var(--font-display);
   font-size: 9px;
+  font-weight: 900;
   letter-spacing: 3px;
-  color: rgba(255,255,255,0.8);
   text-align: center;
-  padding: 3px 0;
   margin: -6px -12px 4px -12px;
   width: calc(100% + 24px);
+  flex-shrink: 0;
+  /* Invisible by default */
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.your-turn-label.turn-visible {
+  opacity: 1;
 }
 
 /* Card hover outline (selection indicator) */
@@ -1174,15 +1194,15 @@ select option { background: #1a1a1f; }
 .feed-entry {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  padding: 8px 14px 8px 10px;
+  gap: 7px;
+  padding: 6px 12px 6px 9px;
   margin: 0 2px;
   border-left: 3px solid rgba(255,255,255,0.15);
   background: rgba(8, 4, 12, 0.94);
-  font-size: 14px;
-  letter-spacing: 0.3px;
-  line-height: 1.45;
-  color: rgba(255,255,255,0.92);
+  font-size: 12.5px;
+  letter-spacing: 0.2px;
+  line-height: 1.38;
+  color: rgba(255,255,255,0.90);
   animation: feedIn 0.2s ease forwards;
   flex-shrink: 0;
 }
@@ -1203,11 +1223,12 @@ select option { background: #1a1a1f; }
 
 /* Only special events get color — normal play/pass/system stay white */
 .feed-entry.feed-play     { border-color: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); }
-.feed-entry.feed-pass     { border-color: rgba(150,150,170,0.3);  color: rgba(255,255,255,0.55); font-size: 12px; }
-.feed-entry.feed-system   { border-color: rgba(232,0,28,0.4);     color: rgba(255,255,255,0.55); font-size: 12px; font-style: italic; }
+.feed-entry.feed-pass     { border-color: rgba(150,150,170,0.3);  color: rgba(255,255,255,0.5); font-size: 12px; }
+.feed-entry.feed-system   { border-color: rgba(232,0,28,0.4);     color: rgba(255,255,255,0.5); font-size: 12px; font-style: italic; }
 .feed-entry.feed-finish   { border-color: #ffd700; background: rgba(30,25,0,0.95); color: #ffd700; font-weight: 600; }
 .feed-entry.feed-special  { border-color: #f5a623; background: rgba(40,20,0,0.95); color: #f5c842; font-weight: 700; }
-.feed-entry.feed-revolution { border-color: #c03fff; background: rgba(30,0,50,0.97); color: #e07fff; font-weight: 700; }
+.feed-entry.feed-revolution { border-color: #84cc16; background: rgba(10,30,0,0.97); color: #a3e635; font-weight: 700; }
+.feed-entry.feed-win-trick { border-color: rgba(255,255,255,0.6); background: rgba(20,20,20,0.97); color: #ffffff; font-weight: 700; }
 
 /* Keep action-log for compat but hide it */
 .action-log { display: none; }

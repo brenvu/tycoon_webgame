@@ -508,24 +508,25 @@ class TycoonApp {
     UI.renderRevolution(g.revolutionActive);
     UI.renderTimer(this.isHost ? g.turnTimer : this._lastKnownTimer);
 
-    // Revolution outline on game-upper area
+    // Revolution outline on game-upper area + label in play-area
     const gameUpper = document.getElementById('game-upper');
     const revLabel = document.getElementById('revolution-label');
     if (gameUpper) {
       gameUpper.classList.toggle('revolution-active', !!g.revolutionActive);
     }
     if (revLabel) {
-      revLabel.classList.toggle('hidden', !g.revolutionActive);
+      revLabel.classList.toggle('rev-visible', !!g.revolutionActive);
     }
 
-    // Your-turn glow on local player area
+    // Your-turn glow + label on local player area
+    const isActiveTurn = !!isMyTurn && g.phase === 'playing' && !g.pileClearPending;
     const localArea = document.getElementById('local-player-area');
     const yourTurnLabel = document.getElementById('your-turn-label');
     if (localArea) {
-      localArea.classList.toggle('your-turn', !!isMyTurn && g.phase === 'playing');
+      localArea.classList.toggle('your-turn', isActiveTurn);
     }
     if (yourTurnLabel) {
-      yourTurnLabel.classList.toggle('hidden', !isMyTurn || g.phase !== 'playing');
+      yourTurnLabel.classList.toggle('turn-visible', isActiveTurn);
     }
 
     // During exchange phase, clear the main hand display and pile
@@ -548,15 +549,20 @@ class TycoonApp {
     }
 
     const hand = g.getLocalHand() || [];
-    const playableIds = isMyTurn ? Cards.getPlayableCards(hand, g.currentPlay, g.revolutionActive) : new Set();
+    const playableIds = (isMyTurn && !g.pileClearPending) ? Cards.getPlayableCards(hand, g.currentPlay, g.revolutionActive) : new Set();
     UI.renderHand(hand, this.selectedCards, playableIds, (card) => this.toggleCard(card), g.revolutionActive);
 
     const playBtn = document.getElementById('btn-play');
     const passBtn = document.getElementById('btn-pass');
     const selInfo = document.getElementById('selected-info');
 
-    if (playBtn) playBtn.disabled = !isMyTurn || this.selectedCards.size === 0;
-    if (passBtn) passBtn.disabled = !isMyTurn;
+    const pilePending = !!g.pileClearPending;
+    if (playBtn) playBtn.disabled = pilePending || !isMyTurn || this.selectedCards.size === 0;
+    if (passBtn) passBtn.disabled = pilePending || !isMyTurn;
+    // Also clear selection and make hand unselectable during pile-clear delay
+    if (pilePending && this.selectedCards.size > 0) {
+      this.selectedCards.clear();
+    }
 
     if (selInfo) {
       if (localPlayer && localPlayer.finished) {

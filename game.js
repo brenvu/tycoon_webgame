@@ -342,7 +342,7 @@ class TycoonGame {
       this._log(`8 STOP! ${player.nickname} clears the pile and goes again!`);
       this.checkPlayerFinished(this.currentTurn);
       if (this.phase === GamePhase.PLAYING) {
-        this.clearPile(this.currentTurn, 3000); // 3s delay so players see the 8
+        this.clearPile(this.currentTurn, 1500); // 3s delay so players see the 8
       }
       this._notify();
       return { ok: true };
@@ -384,7 +384,7 @@ class TycoonGame {
     if (needToPass === 0) {
       // Everyone else has passed — last player wins the trick
       this._log(`All others passed. ${this.players[lastPlayerIdx]?.nickname || 'Someone'} wins the trick!`);
-      this.clearPile(lastPlayerIdx !== -1 ? lastPlayerIdx : this.currentTurn, 3000);
+      this.clearPile(lastPlayerIdx !== -1 ? lastPlayerIdx : this.currentTurn, 1500);
     } else {
       this.advanceTurn();
       this._notify();
