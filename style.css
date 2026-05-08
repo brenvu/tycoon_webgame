@@ -562,46 +562,36 @@ select option { background: #1a1a1f; }
   outline: 1px solid rgba(132,204,22,0.3);
 }
 
-/* Revolution label — hangs below the green bottom border of game-upper */
+/* Revolution label — plain rectangle hanging below the green border */
 .revolution-label {
-  /* Position: just below the bottom border of game-upper */
   align-self: center;
   position: relative;
   z-index: 30;
-  /* Negative margin pulls it to overlap the border from below */
-  margin-top: -1px;
-  margin-bottom: 0;
   background: #84cc16;
   color: #000;
   font-family: var(--font-display);
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 5px;
-  padding: 4px 20px;
+  padding: 5px 24px;
   white-space: nowrap;
   opacity: 0;
+  height: 0;
+  overflow: hidden;
   pointer-events: none;
-  transition: opacity 0.2s ease;
-  /* Clip the top edge so it looks connected to the bar above */
-  clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 100%, 8px 100%);
+  transition: opacity 0.15s ease;
 }
 
 .revolution-label.rev-visible {
   opacity: 1;
+  height: auto;
+  overflow: visible;
   pointer-events: auto;
   animation: revLabelPulse 1.2s ease-in-out infinite alternate;
 }
 
-/* When hidden, collapse height so it doesn't take layout space */
-.revolution-label:not(.rev-visible) {
-  padding-top: 0;
-  padding-bottom: 0;
-  height: 0;
-  overflow: hidden;
-}
-
 @keyframes revLabelPulse {
-  from { box-shadow: 0 2px 8px rgba(132,204,22,0.6); }
+  from { box-shadow: 0 2px 8px rgba(132,204,22,0.5); }
   to   { box-shadow: 0 4px 18px rgba(132,204,22,1); }
 }
 
@@ -614,26 +604,24 @@ select option { background: #1a1a1f; }
   box-shadow: 0 0 20px rgba(255,255,255,0.15), inset 0 0 12px rgba(255,255,255,0.05);
 }
 
-/* Your-turn label — hangs below the red border-top of local-player-area */
+/* Your-turn label — plain rectangle, absolute below red top border */
 .your-turn-label {
   position: absolute;
-  /* Sit just below the top border (border is 2px) */
   top: 2px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.15s ease;
   background: #d1d5db;
   color: #111;
   font-family: var(--font-display);
   font-size: 9px;
   font-weight: 900;
   letter-spacing: 3px;
-  padding: 4px 16px;
+  padding: 5px 18px;
   white-space: nowrap;
-  clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 100%, 0 100%);
 }
 
 .your-turn-label.turn-visible {
