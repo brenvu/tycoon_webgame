@@ -13,7 +13,7 @@ class TycoonApp {
     this.selectedCards = new Set();
     this.exchangeSelected = new Set();
     this.isHost = false;
-    this.playerInfo = { nickname: 'Phantom', avatar: '' };
+    this.playerInfo = { nickname: 'Phantom', avatar: '', game: 'Persona 5', avatarColor: '#ffffff' };
     this.pendingExchange = null;
     this._timerTick = null;
     this._lastKnownTimer = 90;
@@ -32,6 +32,8 @@ class TycoonApp {
 
   init() {
     this.loadProfile();
+    // Populate avatars after profile loads (uses saved game)
+    setTimeout(() => this.populateAvatars(this.playerInfo.game || 'Persona 5'), 0);
     this.setupLobbyUI();
     this.populateAvatars();
     UI.showScreen('lobby');
@@ -58,14 +60,20 @@ class TycoonApp {
     const avatarSel = document.getElementById('select-avatar');
     if (nickInput) this.playerInfo.nickname = nickInput.value.trim() || 'Phantom';
     if (avatarSel) this.playerInfo.avatar = avatarSel.value;
+    const gameSelSave = document.getElementById('select-game');
+    if (gameSelSave) this.playerInfo.game = gameSelSave.value;
     try { localStorage.setItem('tycoon_profile', JSON.stringify(this.playerInfo)); } catch(e) {}
   }
 
-  populateAvatars() {
+  populateAvatars(game) {
+    const g = game || this.playerInfo.game || 'Persona 5';
     fetch('avatars/manifest.json')
       .then(r => r.ok ? r.json() : Promise.reject())
-      .then(list => UI.populateAvatarSelect(list))
-      .catch(() => UI.populateAvatarSelect(KNOWN_AVATARS));
+      .then(manifest => {
+        const list = (manifest[g] || []).map(f => g + '/' + f);
+        UI.populateAvatarSelect(list, g);
+      })
+      .catch(() => UI.populateAvatarSelect([], g));
   }
 
   _startClientTimer(seconds) {
@@ -94,16 +102,47 @@ class TycoonApp {
     document.getElementById('btn-copy-code').addEventListener('click', () => this.copyRoomCode());
     document.getElementById('btn-start-game').addEventListener('click', () => this.startGame());
     document.getElementById('btn-next-round').addEventListener('click', () => this.nextRound());
-    document.getElementById('btn-play-again').addEventListener('click', () => location.reload());
+    document.getElementById('btn-play-again').addEventListener('click', () => this.playAgain());
     document.getElementById('btn-play').addEventListener('click', () => this.submitPlay());
     document.getElementById('btn-pass').addEventListener('click', () => this.submitPass());
     document.getElementById('btn-confirm-exchange').addEventListener('click', () => this.submitExchangeFromGame());
-    // btn-modal-received-ok is handled exclusively in _showReceivedCardsToast
+    document.getElementById('btn-leave-lobby')?.addEventListener('click', () => this.leaveLobby());
 
     document.getElementById('input-room-code').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.joinGame();
     });
     document.getElementById('input-nickname').addEventListener('blur', () => this.saveProfile());
+
+    // Game dropdown — repopulate avatars on change
+    const gameSelect = document.getElementById('select-game');
+    if (gameSelect) {
+      gameSelect.value = this.playerInfo.game || 'Persona 5';
+      gameSelect.addEventListener('change', () => {
+        this.playerInfo.game = gameSelect.value;
+        this.saveProfile();
+        this.populateAvatars(gameSelect.value);
+      });
+    }
+
+    // Color picker swatches
+    const swatches = document.querySelectorAll('.color-swatch');
+    const colorPreview = document.getElementById('color-preview');
+    const setColor = (color) => {
+      this.playerInfo.avatarColor = color;
+      if (colorPreview) colorPreview.style.background = color;
+      swatches.forEach(s => s.classList.toggle('active', s.dataset.color === color));
+      this.saveProfile();
+    };
+    swatches.forEach(s => s.addEventListener('click', () => setColor(s.dataset.color)));
+    setColor(this.playerInfo.avatarColor || '#ffffff');
+
+    // Warn before leaving mid-game
+    window.addEventListener('beforeunload', (e) => {
+      if (this.game && this.game.phase !== 'lobby' && this.game.phase !== 'game_over') {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
   }
 
   showError(msg) {
@@ -230,7 +269,7 @@ class TycoonApp {
     if (!this.isHost) return;
     this.localId = this.net.getLocalId();
     const players = this.net.getPlayers();
-    if (players.length < 2) { this.showError('Need at least 2 players.'); return; }
+    if (players.length < 4) { this.showError('Need at least 4 players to start.'); return; }
 
     this.net.broadcastGameMessage({ type: 'game_start', players });
     this._initGameLocally(players);
@@ -345,6 +384,15 @@ class TycoonApp {
           // Try immediately in case state_sync already arrived
           this._tryShowReceivedModal();
         }
+        break;
+      case 'play_again':
+        // Host restarted — re-init game with same player list
+        if (msg.players) {
+          this.game = null;
+          this._initGameLocally(msg.players);
+        }
+        break;
+      case 'play_again_ready':
         break;
       case 'play_error':
         UI.showToast('Invalid: ' + msg.reason, 3000);
@@ -614,6 +662,25 @@ class TycoonApp {
 
   nextRound() {
     this.net.sendToHost({ type: 'next_round' });
+  }
+
+  playAgain() {
+    if (this.isHost) {
+      // All players stay connected — reinitialize game with current players
+      const players = this.net.getPlayers();
+      this.net.broadcastGameMessage({ type: 'play_again', players });
+      this._initGameLocally(players);
+    } else {
+      // Guest presses play again — tell host we're ready
+      this.net.sendToHost({ type: 'play_again_ready' });
+    }
+  }
+
+  leaveLobby() {
+    if (confirm('Are you sure you want to leave the lobby?')) {
+      try { this.net?.disconnect(); } catch(e) {}
+      location.reload();
+    }
   }
 
   _hideExchangeBanner() {

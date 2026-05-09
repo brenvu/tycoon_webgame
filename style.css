@@ -49,19 +49,7 @@ html, body {
 .screen:not(.active) { display: none; }
 
 /* ---- Scanline overlay ---- */
-body::after {
-  content: '';
-  position: fixed; inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0,0,0,0.08) 2px,
-    rgba(0,0,0,0.08) 4px
-  );
-  pointer-events: none;
-  z-index: 9999;
-}
+/* scanlines removed */
 
 /* ============================================================
    LOBBY SCREEN
@@ -145,12 +133,7 @@ body::after {
   clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
 }
 
-.lobby-panel::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; height: 3px;
-  background: linear-gradient(90deg, var(--p5-red), transparent, var(--p5-red));
-}
+/* lobby-panel top-line removed */
 
 .panel-title {
   font-family: var(--font-display);
@@ -193,11 +176,11 @@ body::after {
 }
 
 .avatar-big {
-  width: 180px !important;
-  height: 180px !important;
-  min-width: 180px !important;
+  width: 160px !important;
+  height: 160px !important;
+  min-width: 160px !important;
   flex-shrink: 0 !important;
-  font-size: 72px !important;
+  font-size: 64px !important;
   clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
 }
 
@@ -254,7 +237,8 @@ input[type="text"]:focus {
 .avatar-preview-box img {
   width: 100%; height: 100%;
   object-fit: cover;
-  display: none;
+  object-position: top center;
+  display: none; /* shown when avatar is selected */
 }
 
 #avatar-preview-none {
@@ -1367,24 +1351,7 @@ select option { background: #1a1a1f; }
 }
 
 /* Clipped corner decoration */
-.exchange-panel::before {
-  content: '';
-  position: absolute;
-  top: -2px; right: -2px;
-  width: 28px; height: 28px;
-  background: var(--p5-black);
-  clip-path: polygon(0 0, 100% 0, 100% 100%);
-  z-index: 1;
-}
-.exchange-panel::after {
-  content: '';
-  position: absolute;
-  top: -1px; right: -1px;
-  width: 26px; height: 26px;
-  background: var(--p5-red);
-  clip-path: polygon(0 0, 100% 0, 100% 1px, 1px 100%, 0 100%);
-  z-index: 2;
-}
+/* exchange-panel corner lines removed */
 
 .exchange-panel h2 {
   font-family: var(--font-display);
@@ -1732,4 +1699,68 @@ select option { background: #1a1a1f; }
   justify-content: center;
   flex-wrap: wrap;
   padding: 8px 0;
+}
+/* ---- New lobby profile fields ---- */
+.profile-row-inline {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  margin-bottom: 0;
+}
+
+.flex-1 { flex: 1; }
+
+.avatar-color-group { flex-shrink: 0; }
+
+.color-picker-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.color-preview {
+  width: 32px;
+  height: 32px;
+  border: 2px solid rgba(255,255,255,0.3);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.color-options {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  max-width: 140px;
+}
+
+.color-swatch {
+  width: 20px;
+  height: 20px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+}
+
+.color-swatch:hover { transform: scale(1.2); }
+.color-swatch.active { border-color: white; transform: scale(1.15); }
+
+/* Avatar preview: crop square from top */
+
+
+/* Waiting room topbar */
+.waiting-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.waiting-topbar-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+#btn-leave-lobby {
+  display: none; /* shown only for guests via JS */
 }

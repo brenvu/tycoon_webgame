@@ -1,1 +1,46 @@
-["Ren Amamiya.png"]
+{
+  "Persona 5": [
+    "Ren Amamiya.png",
+    "Ryuji Sakamoto.png",
+    "Ann Takamaki.png",
+    "Morgana.png",
+    "Yusuke Kitagawa.png",
+    "Makoto Niijima.png",
+    "Futaba Sakura.png",
+    "Haru Okumura.png",
+    "Goro Akechi.png",
+    "Yoshizawa.png",
+    "Sophia.png",
+    "Zenkichi Hasegawa.png",
+    "Nagisa Kamisiro.png"
+  ],
+  "Persona 4": [
+    "Yu Narukami.png",
+    "Yosuke Hanamura.png",
+    "Chie Satonaka.png",
+    "Yukiko Amagi.png",
+    "Kanji Tatsumi.png",
+    "Rise Kujikawa.png",
+    "Teddie.png",
+    "Naoto Shirogane.png",
+    "Tohru Adachi.png",
+    "Marie.png",
+    "Labrys.png",
+    "Sho Minazuki.png",
+    "Kanami Mashita.png"
+  ],
+  "Persona 3": [
+    "Makoto Yuki.png",
+    "Yukari Takeba.png",
+    "Junpei Iori.png",
+    "Akihiko Sanada.png",
+    "Mitsuru Kirijo.png",
+    "Fuuka Yamagishi.png",
+    "Aigis.png",
+    "Koromaru.png",
+    "Ken Amada.png",
+    "Shinjiro Aragaki.png",
+    "Ryoji Mochizuki.png",
+    "Metis.png"
+  ]
+}

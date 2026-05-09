@@ -352,18 +352,14 @@ const UI = {
 
     const count = players.length;
     if (status) {
-      if (count < 2) status.textContent = `Waiting for players... (need at least 2)`;
-      else if (count < 4) status.textContent = `${count}/4 players connected. Ready to start, or wait for more.`;
-      else status.textContent = `Room full! (4/4 players)`;
+      if (count < 4) status.textContent = `Waiting for players... (${count}/4 — need all 4 to start)`;
+      else status.textContent = `Room full! (4/4) — Ready to start!`;
     }
-
     if (startBtn) {
-      if (isHost && count >= 2) {
-        startBtn.style.display = 'block';
-      } else {
-        startBtn.style.display = 'none';
-      }
+      startBtn.style.display = (isHost && count >= 4) ? 'block' : 'none';
     }
+    const leaveBtn = document.getElementById('btn-leave-lobby');
+    if (leaveBtn) leaveBtn.style.display = !isHost ? 'inline-block' : 'none';
   },
 
   // ---- Round End ----
@@ -508,17 +504,16 @@ const UI = {
 
   // ---- Avatar Setup ----
 
-  populateAvatarSelect(avatarFiles) {
+  populateAvatarSelect(avatarFiles, game) {
     const sel = document.getElementById('select-avatar');
     if (!sel) return;
-    // Clear existing options except placeholder
     while (sel.options.length > 1) sel.remove(1);
 
-    avatarFiles.forEach(filename => {
+    avatarFiles.forEach(filepath => {
       const opt = document.createElement('option');
-      opt.value = filename;
-      // Display name = filename without extension
-      opt.textContent = filename.replace(/\.(png|jpg|jpeg|gif|webp)$/i, '');
+      opt.value = filepath;
+      const name = filepath.split('/').pop().replace(/\.(png|jpg|jpeg|gif|webp)$/i, '');
+      opt.textContent = name;
       sel.appendChild(opt);
     });
 

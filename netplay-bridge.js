@@ -338,6 +338,8 @@ class TycoonNetwork {
 
   _onGuestJoined(conn, player) {
     if (this.allPlayers.find(p => p.id === player.id)) return;
+    // Deduplicate nickname
+    player.nickname = this._uniqueNickname(player.nickname);
     this.allPlayers.push(player);
 
     if (this.onPlayerJoined)     this.onPlayerJoined(player);
@@ -418,6 +420,16 @@ class TycoonNetwork {
     if (t === 'unavailable-id')    return 'Room ID conflict. Please try again.';
     if (t === 'browser-incompatible') return 'Browser does not support WebRTC.';
     return 'Connection error: ' + (err.message || t || 'unknown');
+  }
+
+  _uniqueNickname(base) {
+    const existing = this.allPlayers.map(p => p.nickname);
+    if (!existing.includes(base)) return base;
+    for (let n = 2; n <= 4; n++) {
+      const candidate = `${base} ${n}`;
+      if (!existing.includes(candidate)) return candidate;
+    }
+    return base + ' ' + Date.now().toString().slice(-3);
   }
 
   getPlayerCount() { return this.allPlayers.length; }

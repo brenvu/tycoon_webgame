@@ -39,10 +39,37 @@
               <label>NICKNAME</label>
               <input type="text" id="input-nickname" maxlength="12" placeholder="Enter nickname..." value="Phantom">
             </div>
+            <div class="profile-row-inline">
+              <div class="input-group flex-1">
+                <label>GAME</label>
+                <select id="select-game">
+                  <option value="Persona 5">Persona 5</option>
+                  <option value="Persona 4">Persona 4</option>
+                  <option value="Persona 3">Persona 3</option>
+                </select>
+              </div>
+              <div class="input-group avatar-color-group">
+                <label>COLOR</label>
+                <div class="color-picker-wrap">
+                  <div class="color-preview" id="color-preview" style="background:#ffffff"></div>
+                  <div class="color-options" id="color-options">
+                    <div class="color-swatch" data-color="#ffffff" style="background:#ffffff" title="White"></div>
+                    <div class="color-swatch" data-color="#111111" style="background:#111111" title="Black"></div>
+                    <div class="color-swatch" data-color="#e8001c" style="background:#e8001c" title="Red"></div>
+                    <div class="color-swatch" data-color="#a855f7" style="background:#a855f7" title="Purple"></div>
+                    <div class="color-swatch" data-color="#3b82f6" style="background:#3b82f6" title="Blue"></div>
+                    <div class="color-swatch" data-color="#67e8f9" style="background:#67e8f9" title="Light Blue"></div>
+                    <div class="color-swatch" data-color="#4ade80" style="background:#4ade80" title="Green"></div>
+                    <div class="color-swatch" data-color="#fbbf24" style="background:#fbbf24" title="Yellow"></div>
+                    <div class="color-swatch" data-color="#f97316" style="background:#f97316" title="Orange"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div class="input-group">
               <label>AVATAR</label>
               <select id="select-avatar">
-                <option value="">Select Avatar</option>
+                <option value="">— Select Avatar —</option>
               </select>
             </div>
           </div>
@@ -70,15 +97,20 @@
 
     <!-- Waiting Room -->
     <div id="waiting-room" class="waiting-room hidden">
-      <div class="room-code-display">
-        <span class="rc-label">ROOM CODE</span>
-        <span class="rc-code" id="display-room-code">——</span>
-        <button class="btn-copy" id="btn-copy-code" title="Copy code to clipboard">⧉ Copy</button>
+      <div class="waiting-topbar">
+        <div class="room-code-display">
+          <span class="rc-label">ROOM CODE</span>
+          <span class="rc-code" id="display-room-code">——</span>
+          <button class="btn-copy" id="btn-copy-code" title="Copy code to clipboard">⧉ Copy</button>
+        </div>
+        <div class="waiting-topbar-actions">
+          <button class="btn-primary" id="btn-start-game" style="display:none">START GAME</button>
+          <button class="btn-secondary" id="btn-leave-lobby">LEAVE LOBBY</button>
+        </div>
       </div>
       <div class="room-code-hint" id="room-code-hint">Share this code with up to 3 friends so they can join.</div>
       <div class="waiting-players" id="waiting-players-list"></div>
-      <div class="waiting-status" id="waiting-status">Waiting for players… (need at least 2)</div>
-      <button class="btn-primary" id="btn-start-game" style="display:none">START GAME</button>
+      <div class="waiting-status" id="waiting-status">Waiting for players… (need at least 4)</div>
     </div>
 
     <div id="lobby-error" class="lobby-error hidden"></div>
