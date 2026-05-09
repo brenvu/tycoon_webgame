@@ -14,6 +14,9 @@ class TycoonApp {
     this.exchangeSelected = new Set();
     this.isHost = false;
     this.playerInfo = { nickname: 'Phantom', avatar: '', game: 'Persona 5', avatarColor: '#ffffff' };
+    this._readySet = new Set();     // IDs of ready players in lobby
+    this._playAgainSet = new Set(); // IDs who voted play again
+    this._localReady = false;
     this.pendingExchange = null;
     this._timerTick = null;
     this._lastKnownTimer = 90;
@@ -107,6 +110,9 @@ class TycoonApp {
     document.getElementById('btn-pass').addEventListener('click', () => this.submitPass());
     document.getElementById('btn-confirm-exchange').addEventListener('click', () => this.submitExchangeFromGame());
     document.getElementById('btn-leave-lobby')?.addEventListener('click', () => this.leaveLobby());
+    document.getElementById('btn-disband-lobby')?.addEventListener('click', () => this.disbandLobby());
+    document.getElementById('btn-ready-host')?.addEventListener('click', () => this.toggleReady());
+    document.getElementById('btn-ready-guest')?.addEventListener('click', () => this.toggleReady());
 
     document.getElementById('input-room-code').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.joinGame();
@@ -124,16 +130,33 @@ class TycoonApp {
       });
     }
 
-    // Color picker swatches
+    // Color picker — dropdown: click trigger to open/close menu
+    const colorTrigger = document.getElementById('color-preview');
+    const colorMenu = document.getElementById('color-options');
     const swatches = document.querySelectorAll('.color-swatch');
-    const colorPreview = document.getElementById('color-preview');
     const setColor = (color) => {
       this.playerInfo.avatarColor = color;
-      if (colorPreview) colorPreview.style.background = color;
+      if (colorTrigger) colorTrigger.style.background = color;
       swatches.forEach(s => s.classList.toggle('active', s.dataset.color === color));
+      // Update avatar preview background
+      const previewBox = document.querySelector('.avatar-preview-box');
+      if (previewBox) previewBox.style.background = color;
+      if (colorMenu) colorMenu.style.display = 'none';
       this.saveProfile();
     };
-    swatches.forEach(s => s.addEventListener('click', () => setColor(s.dataset.color)));
+    if (colorTrigger) {
+      colorTrigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = colorMenu.style.display !== 'none';
+        colorMenu.style.display = open ? 'none' : 'grid';
+      });
+    }
+    swatches.forEach(s => s.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setColor(s.dataset.color);
+    }));
+    // Close menu on outside click
+    document.addEventListener('click', () => { if (colorMenu) colorMenu.style.display = 'none'; });
     setColor(this.playerInfo.avatarColor || '#ffffff');
 
     // Warn before leaving mid-game
@@ -253,7 +276,19 @@ class TycoonApp {
   }
 
   renderWaiting() {
-    UI.renderWaitingRoom(this.net.getPlayers(), this.isHost, this.localId);
+    const players = this.net.getPlayers();
+    UI.renderWaitingRoom(players, this.isHost, this.localId);
+    // Show correct action panel
+    document.getElementById('host-actions').style.display = this.isHost ? 'flex' : 'none';
+    document.getElementById('guest-actions').style.display = !this.isHost ? 'flex' : 'none';
+    // If host, re-render ready status
+    if (this.isHost) {
+      // Remove left players from ready set
+      const playerIds = new Set(players.map(p => p.id));
+      this._readySet.forEach(id => { if (!playerIds.has(id)) this._readySet.delete(id); });
+      this._broadcastReadyState();
+    }
+    UI.renderReadyStatus(this._readySet, players);
   }
 
   copyRoomCode() {
@@ -282,7 +317,7 @@ class TycoonApp {
     this.game.onStateChange = (state) => this.onGameStateChange(state);
     this.game.onActionLog   = (msg)   => UI.addLogEntry(msg);
 
-    netPlayers.forEach(p => this.game.addPlayer(p.id, p.nickname, p.avatar));
+    netPlayers.forEach(p => this.game.addPlayer(p.id, p.nickname, p.avatar, p.avatarColor || '#ffffff'));
 
     const idx = this.game.players.findIndex(p => p.id === this.localId);
     this.localPlayerIndex      = idx;
@@ -385,14 +420,48 @@ class TycoonApp {
           this._tryShowReceivedModal();
         }
         break;
+      case 'ready_state':
+        // Host broadcast who is ready
+        UI.renderReadyStatus(new Set(msg.readyIds || []), this.net.getPlayers());
+        break;
+      case 'game_start_ready':
+        // All ready — game starts
+        if (msg.players) this._initGameLocally(msg.players);
+        break;
+      case 'lobby_disbanded':
+        UI.showToast('Lobby disbanded by host.', 3000);
+        setTimeout(() => location.reload(), 1500);
+        break;
+      case 'play_again_vote':
+        // Show updated vote count
+        UI.showToast(`Play again vote: ${msg.count}/${msg.total}`, 2000);
+        break;
+      case 'play_again_count':
+        UI.showToast(`Play again: ${msg.count}/${msg.total} voted`, 2000);
+        break;
+      case 'play_again_go':
+        // All voted — start new game
+        this._playAgainSet.clear();
+        if (msg.players) this._initGameLocally(msg.players);
+        break;
       case 'play_again':
-        // Host restarted — re-init game with same player list
-        if (msg.players) {
-          this.game = null;
-          this._initGameLocally(msg.players);
-        }
+        // Legacy compat
+        if (msg.players) this._initGameLocally(msg.players);
         break;
       case 'play_again_ready':
+        break;
+      case 'player_ready':
+        this._readySet.add(peerId);
+        this._broadcastReadyState();
+        this._checkReadyStart();
+        break;
+      case 'player_unready':
+        this._readySet.delete(peerId);
+        this._broadcastReadyState();
+        break;
+      case 'play_again_vote':
+        this._playAgainSet.add(peerId);
+        this._checkPlayAgain();
         break;
       case 'play_error':
         UI.showToast('Invalid: ' + msg.reason, 3000);
@@ -446,6 +515,7 @@ class TycoonApp {
         lp.finished       = sp.finished;
         lp.finishPosition = sp.finishPosition;
         lp.handCount      = sp.handCount || 0;
+        lp.avatarColor    = sp.avatarColor || '#ffffff';
         lp.passedThisTrick = sp.passedThisTrick || false;
         if (sp.hand && sp.hand.length > 0) {
           lp.hand = sp.hand;
@@ -664,15 +734,30 @@ class TycoonApp {
     this.net.sendToHost({ type: 'next_round' });
   }
 
-  playAgain() {
+  toggleReady() {
+    this._localReady = !this._localReady;
+    const readyBtnHost = document.getElementById('btn-ready-host');
+    const readyBtnGuest = document.getElementById('btn-ready-guest');
+    const btn = readyBtnHost || readyBtnGuest;
+    if (btn) {
+      btn.textContent = this._localReady ? 'UNREADY' : 'READY';
+      btn.classList.toggle('is-ready', this._localReady);
+    }
     if (this.isHost) {
-      // All players stay connected — reinitialize game with current players
-      const players = this.net.getPlayers();
-      this.net.broadcastGameMessage({ type: 'play_again', players });
-      this._initGameLocally(players);
+      if (this._localReady) this._readySet.add(this.localId);
+      else this._readySet.delete(this.localId);
+      this._broadcastReadyState();
+      this._checkReadyStart();
     } else {
-      // Guest presses play again — tell host we're ready
-      this.net.sendToHost({ type: 'play_again_ready' });
+      this.net.sendToHost({ type: this._localReady ? 'player_ready' : 'player_unready' });
+    }
+  }
+
+  disbandLobby() {
+    if (confirm('Disband the lobby? All players will be disconnected.')) {
+      this.net.broadcastGameMessage({ type: 'lobby_disbanded' });
+      try { this.net?.disconnect(); } catch(e) {}
+      location.reload();
     }
   }
 
@@ -680,6 +765,61 @@ class TycoonApp {
     if (confirm('Are you sure you want to leave the lobby?')) {
       try { this.net?.disconnect(); } catch(e) {}
       location.reload();
+    }
+  }
+
+  _broadcastReadyState() {
+    // Host tells everyone the current ready set
+    this.net.broadcastGameMessage({
+      type: 'ready_state',
+      readyIds: [...this._readySet],
+      total: this.net.getPlayers().length
+    });
+    UI.renderReadyStatus(this._readySet, this.net.getPlayers());
+  }
+
+  _checkReadyStart() {
+    const players = this.net.getPlayers();
+    if (players.length >= 4 && this._readySet.size >= players.length) {
+      // All ready — start!
+      this._readySet.clear();
+      this._localReady = false;
+      const readyBtnHost = document.getElementById('btn-ready-host');
+      if (readyBtnHost) { readyBtnHost.textContent = 'READY'; readyBtnHost.classList.remove('is-ready'); }
+      const allPlayers = players;
+      this.net.broadcastGameMessage({ type: 'game_start_ready', players: allPlayers });
+      this._initGameLocally(allPlayers);
+    }
+  }
+
+  playAgain() {
+    // Vote system: all 4 must vote to play again
+    this._playAgainSet.add(this.localId);
+    if (this.isHost) {
+      this.net.broadcastGameMessage({ type: 'play_again_vote', voterId: this.localId,
+        count: this._playAgainSet.size, total: this.net.getPlayers().length });
+      this._checkPlayAgain();
+    } else {
+      this.net.sendToHost({ type: 'play_again_vote' });
+    }
+    const btn = document.getElementById('btn-play-again');
+    if (btn) { btn.textContent = 'VOTED!'; btn.disabled = true; }
+  }
+
+  _checkPlayAgain() {
+    const players = this.net.getPlayers();
+    if (this._playAgainSet.size >= players.length && players.length >= 4) {
+      this._playAgainSet.clear();
+      const allPlayers = players;
+      this.net.broadcastGameMessage({ type: 'play_again_go', players: allPlayers });
+      this._initGameLocally(allPlayers);
+    } else if (this._playAgainSet.size < players.length) {
+      // Announce vote count
+      this.net.broadcastGameMessage({
+        type: 'play_again_count',
+        count: this._playAgainSet.size,
+        total: players.length
+      });
     }
   }
 

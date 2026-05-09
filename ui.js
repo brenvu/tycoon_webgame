@@ -153,7 +153,7 @@ const UI = {
       const hasPassed = player.passedThisTrick && !player.finished;
       el.className = `opponent-panel ${isActive ? 'active-turn' : ''} ${hasPassed ? 'passed-turn' : ''}`;
 
-      const avatarEl = this._makeAvatarEl(player.avatar, player.nickname, 'opponent-avatar');
+      const avatarEl = this._makeAvatarEl(player.avatar, player.nickname, 'opponent-avatar', player.avatarColor);
 
       const info = document.createElement('div');
       info.className = 'opponent-info';
@@ -234,6 +234,9 @@ const UI = {
     const rankEl = document.getElementById('local-rank-badge');
     const avatarImg = document.getElementById('local-avatar-img');
     const avatarPh = document.getElementById('local-avatar-ph');
+    // Apply avatar background color
+    const avatarWrap = document.querySelector('.local-avatar-wrap');
+    if (avatarWrap && player.avatarColor) avatarWrap.style.background = player.avatarColor;
 
     if (nicknameEl) nicknameEl.textContent = player.nickname;
     if (rankEl) {
@@ -340,7 +343,7 @@ const UI = {
       const row = document.createElement('div');
       row.className = `waiting-player-row ${p.id === localId ? 'local-player-row' : ''}`;
 
-      const av = this._makeAvatarEl(p.avatar, p.nickname, 'waiting-avatar-sm');
+      const av = this._makeAvatarEl(p.avatar, p.nickname, 'waiting-avatar-sm', p.avatarColor);
       const nameEl = document.createElement('span');
       nameEl.className = 'waiting-player-name';
       nameEl.textContent = p.nickname + (p.id === localId ? ' (You)' : '') + (p.isHost ? ' 👑' : '');
@@ -358,8 +361,27 @@ const UI = {
     if (startBtn) {
       startBtn.style.display = (isHost && count >= 4) ? 'block' : 'none';
     }
-    const leaveBtn = document.getElementById('btn-leave-lobby');
-    if (leaveBtn) leaveBtn.style.display = !isHost ? 'inline-block' : 'none';
+    // Buttons handled by renderWaiting() in main.js
+  },
+
+  renderReadyStatus(readySet, players) {
+    const el = document.getElementById('ready-status');
+    if (!el) return;
+    const count = readySet.size;
+    const total = players.length;
+    if (total < 4) {
+      el.textContent = `${total}/4 players connected`;
+      el.style.color = '#888';
+    } else if (count === 0) {
+      el.textContent = `0/${total} Ready`;
+      el.style.color = '#888';
+    } else if (count < total) {
+      el.textContent = `${count}/${total} Ready`;
+      el.style.color = '#fbbf24';
+    } else {
+      el.textContent = `${count}/${total} Ready — Starting!`;
+      el.style.color = '#22c55e';
+    }
   },
 
   // ---- Round End ----
@@ -564,13 +586,17 @@ const UI = {
 
   // ---- Helpers ----
 
-  _makeAvatarEl(avatarFile, nickname, className) {
+  _makeAvatarEl(avatarFile, nickname, className, avatarColor) {
     const wrap = document.createElement('div');
     wrap.className = className || 'avatar-wrap';
+    // Apply avatar background color
+    if (avatarColor) wrap.style.background = avatarColor;
     if (avatarFile) {
       const img = document.createElement('img');
+      // avatarSrc may be "Game/Name.png" or legacy "Name.png"
       img.src = `avatars/${avatarFile}`;
       img.alt = nickname || '';
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;object-position:top center;display:block';
       img.onerror = () => {
         img.style.display = 'none';
         const ph = document.createElement('div');

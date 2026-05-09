@@ -1712,37 +1712,48 @@ select option { background: #1a1a1f; }
 
 .avatar-color-group { flex-shrink: 0; }
 
-.color-picker-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+/* Color dropdown — single box that opens a grid of swatches */
+.color-dropdown {
+  position: relative;
+  display: inline-block;
 }
 
-.color-preview {
-  width: 32px;
-  height: 32px;
-  border: 2px solid rgba(255,255,255,0.3);
+.color-dropdown-trigger {
+  width: 36px;
+  height: 36px;
+  border: 2px solid rgba(255,255,255,0.4);
   cursor: pointer;
-  flex-shrink: 0;
+  transition: border-color 0.15s;
 }
 
-.color-options {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  max-width: 140px;
+.color-dropdown-trigger:hover {
+  border-color: rgba(255,255,255,0.8);
+}
+
+.color-dropdown-menu {
+  position: absolute;
+  top: 40px;
+  left: 0;
+  background: #0d0d12;
+  border: 1px solid rgba(255,255,255,0.2);
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, 28px);
+  gap: 6px;
+  z-index: 999;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.8);
 }
 
 .color-swatch {
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   border: 2px solid transparent;
   cursor: pointer;
-  transition: border-color 0.15s, transform 0.1s;
+  transition: border-color 0.1s, transform 0.1s;
 }
 
-.color-swatch:hover { transform: scale(1.2); }
-.color-swatch.active { border-color: white; transform: scale(1.15); }
+.color-swatch:hover { transform: scale(1.15); border-color: rgba(255,255,255,0.6); }
+.color-swatch.active { border-color: #ffffff; }
 
 /* Avatar preview: crop square from top */
 
@@ -1761,6 +1772,29 @@ select option { background: #1a1a1f; }
   align-items: center;
 }
 
-#btn-leave-lobby {
-  display: none; /* shown only for guests via JS */
+/* Ready button — green, stands out */
+.btn-ready {
+  font-family: var(--font-display);
+  letter-spacing: 3px;
+  font-size: 14px;
+  padding: 10px 24px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: uppercase;
+  background: #22c55e;
+  color: #000;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+.btn-ready:hover { background: #16a34a; }
+.btn-ready.is-ready { background: #64748b; color: #ccc; }
+
+/* Ready status line */
+.ready-status {
+  font-family: var(--font-display);
+  font-size: 16px;
+  letter-spacing: 3px;
+  color: #22c55e;
+  text-align: center;
+  margin-top: 6px;
 }

@@ -52,10 +52,10 @@ class TycoonGame {
 
   // ---- Setup ----
 
-  addPlayer(id, nickname, avatar) {
+  addPlayer(id, nickname, avatar, avatarColor = '#ffffff') {
     if (this.players.length >= 4) return false;
     this.players.push({
-      id, nickname, avatar,
+      id, nickname, avatar, avatarColor,
       rank: 'commoner',
       score: 0,
       hand: [],
@@ -578,6 +578,7 @@ class TycoonGame {
         id: p.id,
         nickname: p.nickname,
         avatar: p.avatar,
+        avatarColor: p.avatarColor || '#ffffff',
         rank: p.rank,
         score: p.score,
         handCount: p.hand.length > 0 ? p.hand.length : (p.handCount || 0),

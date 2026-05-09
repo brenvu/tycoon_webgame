@@ -50,9 +50,9 @@
               </div>
               <div class="input-group avatar-color-group">
                 <label>COLOR</label>
-                <div class="color-picker-wrap">
-                  <div class="color-preview" id="color-preview" style="background:#ffffff"></div>
-                  <div class="color-options" id="color-options">
+                <div class="color-dropdown" id="color-dropdown">
+                  <div class="color-dropdown-trigger" id="color-preview" style="background:#ffffff" title="Choose color"></div>
+                  <div class="color-dropdown-menu" id="color-options" style="display:none">
                     <div class="color-swatch" data-color="#ffffff" style="background:#ffffff" title="White"></div>
                     <div class="color-swatch" data-color="#111111" style="background:#111111" title="Black"></div>
                     <div class="color-swatch" data-color="#e8001c" style="background:#e8001c" title="Red"></div>
@@ -103,14 +103,23 @@
           <span class="rc-code" id="display-room-code">——</span>
           <button class="btn-copy" id="btn-copy-code" title="Copy code to clipboard">⧉ Copy</button>
         </div>
-        <div class="waiting-topbar-actions">
-          <button class="btn-primary" id="btn-start-game" style="display:none">START GAME</button>
+        <!-- Host actions: Disband | Ready -->
+        <div class="waiting-topbar-actions" id="host-actions" style="display:none">
+          <button class="btn-secondary" id="btn-disband-lobby">DISBAND LOBBY</button>
+          <button class="btn-ready" id="btn-ready-host">READY</button>
+        </div>
+        <!-- Guest actions: Leave | Ready -->
+        <div class="waiting-topbar-actions" id="guest-actions" style="display:none">
           <button class="btn-secondary" id="btn-leave-lobby">LEAVE LOBBY</button>
+          <button class="btn-ready" id="btn-ready-guest">READY</button>
         </div>
       </div>
       <div class="room-code-hint" id="room-code-hint">Share this code with up to 3 friends so they can join.</div>
       <div class="waiting-players" id="waiting-players-list"></div>
-      <div class="waiting-status" id="waiting-status">Waiting for players… (need at least 4)</div>
+      <div class="waiting-status" id="waiting-status">Waiting for players… (need 4 to start)</div>
+      <div class="ready-status" id="ready-status"></div>
+      <!-- Hidden start trigger - only host fires this via ready vote -->
+      <button id="btn-start-game" style="display:none">START GAME</button>
     </div>
 
     <div id="lobby-error" class="lobby-error hidden"></div>
