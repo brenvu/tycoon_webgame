@@ -275,6 +275,7 @@ class TycoonGame {
   }
 
   playCards(playerId, selectedCards) {
+    if (this.pileClearPending) return { ok: false, reason: 'Pile is clearing.' };
     if (!this.isPlayerTurn(playerId)) return { ok: false, reason: 'Not your turn.' };
 
     const player = this.players[this.currentTurn];
@@ -365,6 +366,7 @@ class TycoonGame {
   }
 
   pass(playerId) {
+    if (this.pileClearPending) return; // reject during clear delay
     if (!this.isPlayerTurn(playerId)) return;
 
     const player = this.players[this.currentTurn];

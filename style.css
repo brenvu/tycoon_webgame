@@ -158,13 +158,14 @@ html, body {
 }
 
 .lobby-panel-profile {
-  flex: 0 0 auto;
-  width: 480px;
+  flex: 2;
+  min-width: 0;
 }
 
 .lobby-panel-actions {
   flex: 1;
-  min-width: 280px;
+  min-width: 220px;
+  max-width: 300px;
 }
 
 .profile-row {
@@ -248,14 +249,14 @@ input[type="text"]:focus {
 }
 
 select {
-  flex: 1;
+  width: 100%;
   background: #0d0d12;
   border: 1px solid var(--p5-panel-border);
   border-bottom: 2px solid var(--p5-red);
   color: var(--p5-white);
   font-family: var(--font-ui);
   font-size: 14px;
-  padding: 10px 14px;
+  padding: 10px 32px 10px 14px; /* right padding for dropdown arrow */
   outline: none;
   cursor: pointer;
   appearance: none;
@@ -1135,6 +1136,12 @@ select option { background: #1a1a1f; }
   border-top: 1px solid rgba(255,255,255,0.04);
 }
 
+/* Lock all buttons during pile clear */
+.action-buttons.pile-clearing {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
 .timer-center-num {
   font-family: var(--font-display);
   font-size: 32px;
@@ -1715,9 +1722,9 @@ select option { background: #1a1a1f; }
   margin-bottom: 0;
 }
 
-.flex-1 { flex: 1; }
+.flex-1 { flex: 1; min-width: 0; }
 
-.avatar-color-group { flex-shrink: 0; }
+.avatar-color-group { flex-shrink: 0; width: 120px; }
 
 /* Color the option text — works in most browsers */
 option[value="#ffffff"] { color: #cccccc; }
@@ -1734,17 +1741,18 @@ option[value="#f97316"] { color: #f97316; }
 .color-cycler {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  height: 44px; /* match select height */
 }
 
 .color-arrow {
   background: none;
   border: 1px solid rgba(255,255,255,0.3);
   color: var(--p5-white);
-  width: 24px;
-  height: 36px;
+  width: 22px;
+  height: 44px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 11px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1755,8 +1763,9 @@ option[value="#f97316"] { color: #f97316; }
 .color-arrow:hover { border-color: var(--p5-red); background: rgba(232,0,28,0.15); }
 
 .color-swatch-display {
-  width: 60px;
-  height: 36px;
+  /* Square swatch that fills height */
+  width: 44px;
+  height: 44px;
   border: 2px solid rgba(255,255,255,0.3);
   flex-shrink: 0;
 }
@@ -1764,12 +1773,12 @@ option[value="#f97316"] { color: #f97316; }
 /* Avatar preview: crop square from top */
 
 
-/* Room code block — label above code */
+/* Room code block — label above code, inside topbar */
 .room-code-block {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  margin-bottom: 12px;
+  flex-shrink: 0;
 }
 
 .room-code-block .rc-label {
@@ -1787,12 +1796,17 @@ option[value="#f97316"] { color: #f97316; }
   gap: 12px;
 }
 
-/* Waiting topbar: ready-status left, buttons right */
+/* Waiting topbar: code | ready-count | action buttons, all in one row */
 .waiting-topbar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* Push action buttons to far right */
+.waiting-topbar .waiting-topbar-actions {
+  margin-left: auto;
 }
 
 .waiting-topbar-actions {

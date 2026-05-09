@@ -677,11 +677,13 @@ class TycoonApp {
     const passBtn = document.getElementById('btn-pass');
     const selInfo = document.getElementById('selected-info');
 
-    // During pile-clear delay: disable ALL players (no one can act until pile clears)
+    // During pile-clear delay: lock ALL players
     const pilePending = !!g.pileClearPending;
+    const actionBtnsEl = document.getElementById('action-buttons');
+    if (actionBtnsEl) actionBtnsEl.classList.toggle('pile-clearing', pilePending);
     if (playBtn) playBtn.disabled = pilePending || !isMyTurn || this.selectedCards.size === 0;
-    if (passBtn) passBtn.disabled = pilePending || !isMyTurn || !!g.pileClearPending;
-    // Also clear selection and make hand unselectable during pile-clear delay
+    if (passBtn) passBtn.disabled = pilePending || !isMyTurn;
+    // Clear selection during pile-clear delay
     if (pilePending && this.selectedCards.size > 0) {
       this.selectedCards.clear();
     }

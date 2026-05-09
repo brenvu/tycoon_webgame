@@ -87,16 +87,15 @@
 
     <!-- Waiting Room -->
     <div id="waiting-room" class="waiting-room hidden">
-      <!-- Room code: label above code -->
-      <div class="room-code-block">
-        <div class="rc-label">ROOM CODE</div>
-        <div class="rc-code-row">
-          <span class="rc-code" id="display-room-code">——</span>
-          <button class="btn-copy" id="btn-copy-code" title="Copy">⧉ Copy</button>
-        </div>
-      </div>
-      <!-- Topbar: ready-status left, action buttons right -->
+      <!-- Single topbar row: code | player count | action buttons -->
       <div class="waiting-topbar">
+        <div class="room-code-block">
+          <div class="rc-label">ROOM CODE</div>
+          <div class="rc-code-row">
+            <span class="rc-code" id="display-room-code">——</span>
+            <button class="btn-copy" id="btn-copy-code" title="Copy">⧉ Copy</button>
+          </div>
+        </div>
         <div class="ready-status" id="ready-status"></div>
         <!-- Host actions: Disband | Ready -->
         <div class="waiting-topbar-actions" id="host-actions" style="display:none">
