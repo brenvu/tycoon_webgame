@@ -289,14 +289,21 @@ class TycoonApp {
       return;
     }
 
-    // Disconnect from any prior lobby before joining a new one
+    const joinBtn = document.getElementById('btn-join');
+    joinBtn.textContent = 'JOIN ROOM';
+    joinBtn.disabled = false;
+
+    // Disconnect from any prior lobby (host disbands, guest leaves) before joining new
     if (this.net) {
+      if (this.isHost) {
+        // Host leaving their own lobby — broadcast disband first
+        try { this.net.broadcastGameMessage({ type: 'lobby_disbanded' }); } catch(_) {}
+      }
       try { this.net.disconnect(); } catch(_) {}
       this._roomCode = null;
       this._setLobbyButtons(false);
     }
 
-    const joinBtn = document.getElementById('btn-join');
     joinBtn.disabled = true;
     joinBtn.textContent = 'JOINING...';
 
@@ -722,8 +729,8 @@ class TycoonApp {
     const passBtn = document.getElementById('btn-pass');
     const selInfo = document.getElementById('selected-info');
 
-    // If it's now our turn (new trick started), clear the pass-pending state
-    if (isMyTurn && !g.pileClearPending && !g.currentPlay) {
+    // Clear pass-pending whenever it's genuinely our turn (pile not mid-clear)
+    if (isMyTurn && !g.pileClearPending) {
       this._passPending = false;
     }
 

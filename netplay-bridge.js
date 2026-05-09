@@ -283,16 +283,18 @@ class TycoonNetwork {
     conn.on('close', () => {
       this.connections = this.connections.filter(c => c !== conn);
       const player = this.allPlayers.find(p => p.id === conn.peer);
-      if (!player) return;
-
-      this.allPlayers = this.allPlayers.filter(p => p.id !== conn.peer);
 
       if (this.isHost) {
+        // Host: a guest disconnected
+        if (!player) return;
+        this.allPlayers = this.allPlayers.filter(p => p.id !== conn.peer);
         this._broadcast({ type: 'player_left', playerId: conn.peer });
+        if (this.onPlayerLeft)       this.onPlayerLeft(conn.peer);
+        if (this.onConnectionChange) this.onConnectionChange();
+      } else {
+        // Guest: host connection closed → lobby disbanded
+        if (this.onHostLeft) this.onHostLeft();
       }
-
-      if (this.onPlayerLeft)       this.onPlayerLeft(conn.peer);
-      if (this.onConnectionChange) this.onConnectionChange();
     });
   }
 
