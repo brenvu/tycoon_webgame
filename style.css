@@ -176,11 +176,11 @@ html, body {
 }
 
 .avatar-big {
-  width: 160px !important;
-  height: 160px !important;
-  min-width: 160px !important;
+  width: 190px !important;
+  height: 190px !important;
+  min-width: 190px !important;
   flex-shrink: 0 !important;
-  font-size: 64px !important;
+  font-size: 72px !important;
   clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
 }
 
@@ -280,6 +280,13 @@ select option { background: #1a1a1f; }
   flex-direction: row;
   gap: 20px;
   align-items: flex-start;
+  margin-top: 12px;
+}
+
+.lobby-actions-v {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   margin-top: 12px;
 }
 
@@ -1723,15 +1730,64 @@ option[value="#4ade80"] { color: #4ade80; }
 option[value="#fbbf24"] { color: #fbbf24; }
 option[value="#f97316"] { color: #f97316; }
 
-/* Color select — named dropdown with colored text */
-.color-select {
-  width: 100%;
+/* Color cycler — arrow left, swatch, arrow right */
+.color-cycler {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.color-arrow {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.3);
+  color: var(--p5-white);
+  width: 24px;
+  height: 36px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  transition: border-color 0.15s, background 0.15s;
+}
+.color-arrow:hover { border-color: var(--p5-red); background: rgba(232,0,28,0.15); }
+
+.color-swatch-display {
+  width: 60px;
+  height: 36px;
+  border: 2px solid rgba(255,255,255,0.3);
+  flex-shrink: 0;
 }
 
 /* Avatar preview: crop square from top */
 
 
-/* Waiting room topbar */
+/* Room code block — label above code */
+.room-code-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.room-code-block .rc-label {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--p5-red);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.rc-code-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Waiting topbar: ready-status left, buttons right */
 .waiting-topbar {
   display: flex;
   justify-content: space-between;

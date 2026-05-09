@@ -65,8 +65,7 @@ class TycoonApp {
     if (avatarSel) this.playerInfo.avatar = avatarSel.value;
     const gameSelSave = document.getElementById('select-game');
     if (gameSelSave) this.playerInfo.game = gameSelSave.value;
-    const colorSelSave = document.getElementById('select-color');
-    if (colorSelSave) this.playerInfo.avatarColor = colorSelSave.value;
+    // avatarColor is kept current in this.playerInfo.avatarColor by the cycler
     try { localStorage.setItem('tycoon_profile', JSON.stringify(this.playerInfo)); } catch(e) {}
   }
 
@@ -132,19 +131,38 @@ class TycoonApp {
       });
     }
 
-    // Color select — named dropdown
-    const colorSelect = document.getElementById('select-color');
+    // Color cycler — arrow buttons cycle through palette
+    const COLOR_PALETTE = [
+      { value: '#ffffff', label: 'White' },
+      { value: '#111111', label: 'Black' },
+      { value: '#e8001c', label: 'Red' },
+      { value: '#a855f7', label: 'Purple' },
+      { value: '#3b82f6', label: 'Blue' },
+      { value: '#67e8f9', label: 'Light Blue' },
+      { value: '#4ade80', label: 'Green' },
+      { value: '#fbbf24', label: 'Yellow' },
+      { value: '#f97316', label: 'Orange' },
+    ];
+    let _colorIdx = COLOR_PALETTE.findIndex(c => c.value === (this.playerInfo.avatarColor || '#ffffff'));
+    if (_colorIdx < 0) _colorIdx = 0;
+
     const applyColor = (color) => {
       this.playerInfo.avatarColor = color;
+      const display = document.getElementById('color-display');
+      if (display) display.style.background = color;
       const previewBox = document.querySelector('.avatar-preview-box');
       if (previewBox) previewBox.style.background = color;
       this.saveProfile();
     };
-    if (colorSelect) {
-      colorSelect.value = this.playerInfo.avatarColor || '#ffffff';
-      colorSelect.addEventListener('change', () => applyColor(colorSelect.value));
-    }
-    applyColor(this.playerInfo.avatarColor || '#ffffff');
+
+    const setColorByIdx = (idx) => {
+      _colorIdx = ((idx % COLOR_PALETTE.length) + COLOR_PALETTE.length) % COLOR_PALETTE.length;
+      applyColor(COLOR_PALETTE[_colorIdx].value);
+    };
+
+    document.getElementById('color-prev')?.addEventListener('click', () => setColorByIdx(_colorIdx - 1));
+    document.getElementById('color-next')?.addEventListener('click', () => setColorByIdx(_colorIdx + 1));
+    applyColor(COLOR_PALETTE[_colorIdx].value);
 
     // Warn before leaving mid-game
     window.addEventListener('beforeunload', (e) => {

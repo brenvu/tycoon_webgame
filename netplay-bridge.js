@@ -163,10 +163,11 @@ class TycoonNetwork {
 
       this.roomCode   = code;
       this.allPlayers = [{
-        id:       this.localId,
-        nickname: playerInfo.nickname,
-        avatar:   playerInfo.avatar,
-        isHost:   true
+        id:          this.localId,
+        nickname:    playerInfo.nickname,
+        avatar:      playerInfo.avatar,
+        avatarColor: playerInfo.avatarColor || '#ffffff',
+        isHost:      true
       }];
 
       console.log('[Net] Room ready:', code);
@@ -230,10 +231,11 @@ class TycoonNetwork {
         this._send(conn, {
           type:   'join',
           player: {
-            id:       this.localId,
-            nickname: playerInfo.nickname,
-            avatar:   playerInfo.avatar,
-            isHost:   false
+            id:          this.localId,
+            nickname:    playerInfo.nickname,
+            avatar:      playerInfo.avatar,
+            avatarColor: playerInfo.avatarColor || '#ffffff',
+            isHost:      false
           }
         });
         resolve();

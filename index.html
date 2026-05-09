@@ -50,17 +50,11 @@
               </div>
               <div class="input-group avatar-color-group">
                 <label>COLOR</label>
-                <select id="select-color" class="color-select">
-                  <option value="#ffffff" data-color="#ffffff">White</option>
-                  <option value="#111111" data-color="#111111">Black</option>
-                  <option value="#e8001c" data-color="#e8001c">Red</option>
-                  <option value="#a855f7" data-color="#a855f7">Purple</option>
-                  <option value="#3b82f6" data-color="#3b82f6">Blue</option>
-                  <option value="#67e8f9" data-color="#67e8f9">Light Blue</option>
-                  <option value="#4ade80" data-color="#4ade80">Green</option>
-                  <option value="#fbbf24" data-color="#fbbf24">Yellow</option>
-                  <option value="#f97316" data-color="#f97316">Orange</option>
-                </select>
+                <div class="color-cycler">
+                  <button class="color-arrow" id="color-prev" type="button">&#9664;</button>
+                  <div class="color-swatch-display" id="color-display"></div>
+                  <button class="color-arrow" id="color-next" type="button">&#9654;</button>
+                </div>
               </div>
             </div>
             <div class="input-group">
@@ -76,13 +70,12 @@
       <!-- RIGHT PANEL: Lobby actions -->
       <div class="lobby-panel lobby-panel-actions">
         <h2 class="panel-title">PLAY</h2>
-        <div class="lobby-actions">
+        <div class="lobby-actions-v">
           <div class="action-col">
             <h3>HOST A GAME</h3>
             <button class="btn-primary" id="btn-host">CREATE ROOM</button>
           </div>
-          <div class="action-or">OR</div>
-          <div class="action-col">
+          <div class="action-col" style="margin-top:20px">
             <h3>JOIN A GAME</h3>
             <input type="text" id="input-room-code" maxlength="6" placeholder="XXXXXX" class="code-input" autocomplete="off" autocorrect="off" spellcheck="false" style="text-transform:uppercase">
             <button class="btn-secondary" id="btn-join">JOIN ROOM</button>
@@ -94,12 +87,17 @@
 
     <!-- Waiting Room -->
     <div id="waiting-room" class="waiting-room hidden">
-      <div class="waiting-topbar">
-        <div class="room-code-display">
-          <span class="rc-label">ROOM CODE</span>
+      <!-- Room code: label above code -->
+      <div class="room-code-block">
+        <div class="rc-label">ROOM CODE</div>
+        <div class="rc-code-row">
           <span class="rc-code" id="display-room-code">——</span>
-          <button class="btn-copy" id="btn-copy-code" title="Copy code to clipboard">⧉ Copy</button>
+          <button class="btn-copy" id="btn-copy-code" title="Copy">⧉ Copy</button>
         </div>
+      </div>
+      <!-- Topbar: ready-status left, action buttons right -->
+      <div class="waiting-topbar">
+        <div class="ready-status" id="ready-status"></div>
         <!-- Host actions: Disband | Ready -->
         <div class="waiting-topbar-actions" id="host-actions" style="display:none">
           <button class="btn-secondary" id="btn-disband-lobby">DISBAND LOBBY</button>
@@ -112,9 +110,8 @@
         </div>
       </div>
       <div class="room-code-hint" id="room-code-hint">Share this code with up to 3 friends so they can join.</div>
-      <div class="waiting-players" id="waiting-players-list"></div>
       <div class="waiting-status" id="waiting-status">Waiting for players… (need 4 to start)</div>
-      <div class="ready-status" id="ready-status"></div>
+      <div class="waiting-players" id="waiting-players-list"></div>
       <!-- Hidden start trigger - only host fires this via ready vote -->
       <button id="btn-start-game" style="display:none">START GAME</button>
     </div>
