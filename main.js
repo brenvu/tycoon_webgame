@@ -65,6 +65,8 @@ class TycoonApp {
     if (avatarSel) this.playerInfo.avatar = avatarSel.value;
     const gameSelSave = document.getElementById('select-game');
     if (gameSelSave) this.playerInfo.game = gameSelSave.value;
+    const colorSelSave = document.getElementById('select-color');
+    if (colorSelSave) this.playerInfo.avatarColor = colorSelSave.value;
     try { localStorage.setItem('tycoon_profile', JSON.stringify(this.playerInfo)); } catch(e) {}
   }
 
@@ -103,7 +105,7 @@ class TycoonApp {
     document.getElementById('btn-host').addEventListener('click', () => this.hostGame());
     document.getElementById('btn-join').addEventListener('click', () => this.joinGame());
     document.getElementById('btn-copy-code').addEventListener('click', () => this.copyRoomCode());
-    document.getElementById('btn-start-game').addEventListener('click', () => this.startGame());
+    // btn-start-game is hidden — game starts via ready vote (_checkReadyStart)
     document.getElementById('btn-next-round').addEventListener('click', () => this.nextRound());
     document.getElementById('btn-play-again').addEventListener('click', () => this.playAgain());
     document.getElementById('btn-play').addEventListener('click', () => this.submitPlay());
@@ -130,34 +132,19 @@ class TycoonApp {
       });
     }
 
-    // Color picker — dropdown: click trigger to open/close menu
-    const colorTrigger = document.getElementById('color-preview');
-    const colorMenu = document.getElementById('color-options');
-    const swatches = document.querySelectorAll('.color-swatch');
-    const setColor = (color) => {
+    // Color select — named dropdown
+    const colorSelect = document.getElementById('select-color');
+    const applyColor = (color) => {
       this.playerInfo.avatarColor = color;
-      if (colorTrigger) colorTrigger.style.background = color;
-      swatches.forEach(s => s.classList.toggle('active', s.dataset.color === color));
-      // Update avatar preview background
       const previewBox = document.querySelector('.avatar-preview-box');
       if (previewBox) previewBox.style.background = color;
-      if (colorMenu) colorMenu.style.display = 'none';
       this.saveProfile();
     };
-    if (colorTrigger) {
-      colorTrigger.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const open = colorMenu.style.display !== 'none';
-        colorMenu.style.display = open ? 'none' : 'grid';
-      });
+    if (colorSelect) {
+      colorSelect.value = this.playerInfo.avatarColor || '#ffffff';
+      colorSelect.addEventListener('change', () => applyColor(colorSelect.value));
     }
-    swatches.forEach(s => s.addEventListener('click', (e) => {
-      e.stopPropagation();
-      setColor(s.dataset.color);
-    }));
-    // Close menu on outside click
-    document.addEventListener('click', () => { if (colorMenu) colorMenu.style.display = 'none'; });
-    setColor(this.playerInfo.avatarColor || '#ffffff');
+    applyColor(this.playerInfo.avatarColor || '#ffffff');
 
     // Warn before leaving mid-game
     window.addEventListener('beforeunload', (e) => {
@@ -190,20 +177,18 @@ class TycoonApp {
     };
 
     this.net.onPlayerLeft = (peerId) => {
-      // FIX: Check if the player actually disconnected or just finished their hand
-      const pIdx = this.game.players.findIndex(p => p.id === peerId);
-      if (pIdx !== -1) {
-        const player = this.game.players[pIdx];
-        // If they aren't marked as 'finished' in game logic, it's a real disconnect
-        if (!player.finished) {
-            UI.showToast((player.nickname || 'A player') + ' disconnected.');
-            if (this.game.phase !== 'lobby') {
-                console.warn('Active player left. Game might be unstable.');
-            }
-        }
+      // Always remove leaver from ready set immediately
+      if (this._readySet.has(peerId)) {
+        this._readySet.delete(peerId);
+        // If this player was the local player (shouldn't happen) just clear
       }
-      
-      if (this.game.phase === 'lobby' || !this.game.phase) {
+
+      const pIdx = this.game ? this.game.players.findIndex(p => p.id === peerId) : -1;
+      const playerName = pIdx !== -1 ? (this.game.players[pIdx].nickname || 'A player') : 'A player';
+      UI.showToast(playerName + ' disconnected.');
+
+      if (!this.game || this.game.phase === 'lobby' || !this.game.phase) {
+        // Re-render waiting room; host re-broadcasts updated ready state
         this.renderWaiting();
       }
     };
@@ -278,14 +263,13 @@ class TycoonApp {
   renderWaiting() {
     const players = this.net.getPlayers();
     UI.renderWaitingRoom(players, this.isHost, this.localId);
-    // Show correct action panel
     document.getElementById('host-actions').style.display = this.isHost ? 'flex' : 'none';
     document.getElementById('guest-actions').style.display = !this.isHost ? 'flex' : 'none';
-    // If host, re-render ready status
     if (this.isHost) {
-      // Remove left players from ready set
+      // Prune any IDs no longer in the lobby from the ready set
       const playerIds = new Set(players.map(p => p.id));
       this._readySet.forEach(id => { if (!playerIds.has(id)) this._readySet.delete(id); });
+      // Broadcast updated state — but do NOT auto-start here (disconnect must not trigger start)
       this._broadcastReadyState();
     }
     UI.renderReadyStatus(this._readySet, players);
@@ -451,16 +435,16 @@ class TycoonApp {
       case 'play_again_ready':
         break;
       case 'player_ready':
-        this._readySet.add(peerId);
+        this._readySet.add(fromId);
         this._broadcastReadyState();
         this._checkReadyStart();
         break;
       case 'player_unready':
-        this._readySet.delete(peerId);
+        this._readySet.delete(fromId);
         this._broadcastReadyState();
         break;
       case 'play_again_vote':
-        this._playAgainSet.add(peerId);
+        this._playAgainSet.add(fromId);
         this._checkPlayAgain();
         break;
       case 'play_error':
@@ -736,9 +720,8 @@ class TycoonApp {
 
   toggleReady() {
     this._localReady = !this._localReady;
-    const readyBtnHost = document.getElementById('btn-ready-host');
-    const readyBtnGuest = document.getElementById('btn-ready-guest');
-    const btn = readyBtnHost || readyBtnGuest;
+    // Pick the correct button based on role
+    const btn = document.getElementById(this.isHost ? 'btn-ready-host' : 'btn-ready-guest');
     if (btn) {
       btn.textContent = this._localReady ? 'UNREADY' : 'READY';
       btn.classList.toggle('is-ready', this._localReady);
@@ -780,16 +763,20 @@ class TycoonApp {
 
   _checkReadyStart() {
     const players = this.net.getPlayers();
-    if (players.length >= 4 && this._readySet.size >= players.length) {
-      // All ready — start!
-      this._readySet.clear();
-      this._localReady = false;
-      const readyBtnHost = document.getElementById('btn-ready-host');
-      if (readyBtnHost) { readyBtnHost.textContent = 'READY'; readyBtnHost.classList.remove('is-ready'); }
-      const allPlayers = players;
-      this.net.broadcastGameMessage({ type: 'game_start_ready', players: allPlayers });
-      this._initGameLocally(allPlayers);
-    }
+    // Need exactly 4 players, and every player in the lobby must be in the ready set
+    if (players.length < 4) return; // not enough players — never start
+    // Verify all current player IDs are in the ready set (not just count match)
+    const allReady = players.every(p => this._readySet.has(p.id));
+    if (!allReady) return;
+
+    // All 4 ready — start the game
+    this._readySet.clear();
+    this._localReady = false;
+    const readyBtnHost = document.getElementById('btn-ready-host');
+    if (readyBtnHost) { readyBtnHost.textContent = 'READY'; readyBtnHost.classList.remove('is-ready'); }
+    const allPlayers = players;
+    this.net.broadcastGameMessage({ type: 'game_start_ready', players: allPlayers });
+    this._initGameLocally(allPlayers);
   }
 
   playAgain() {

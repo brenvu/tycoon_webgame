@@ -358,10 +358,9 @@ const UI = {
       if (count < 4) status.textContent = `Waiting for players... (${count}/4 — need all 4 to start)`;
       else status.textContent = `Room full! (4/4) — Ready to start!`;
     }
-    if (startBtn) {
-      startBtn.style.display = (isHost && count >= 4) ? 'block' : 'none';
-    }
-    // Buttons handled by renderWaiting() in main.js
+    // btn-start-game is never shown — game starts via ready vote
+    if (startBtn) startBtn.style.display = 'none';
+    // Action panels handled by renderWaiting() in main.js
   },
 
   renderReadyStatus(readySet, players) {
