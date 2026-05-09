@@ -579,20 +579,42 @@ select option { background: #1a1a1f; }
 }
 
 /* The box hanging BELOW the line */
+.revolution-label {
+  position: absolute;
+  bottom: 0; 
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--rev-green);
+  z-index: 60;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  box-shadow: 0 0 15px rgba(132, 204, 22, 0.6);
+}
+
+/* The Solid Green Box hanging below the line */
 .revolution-label::after {
   content: 'REVOLUTION';
   position: absolute;
-  top: 100%; /* Positions it below the green bar */
+  top: 4px; /* Sits right at the bottom edge of the 4px bar */
   left: 50%;
   transform: translateX(-50%);
+  
+  /* Box Styling */
   background: var(--rev-green);
   color: #000;
   font-family: var(--font-display);
   font-size: 14px;
   font-weight: 900;
   letter-spacing: 5px;
-  padding: 4px 40px;
-  /* Persona-style trapezoid shape */
+  padding: 4px 45px;
+  
+  /* Visual alignment and shape */
+  display: flex;
+  align-items: center;
+  justify-content: center;
   clip-path: polygon(0 0, 100% 0, 88% 100%, 12% 100%);
 }
 
@@ -604,7 +626,7 @@ select option { background: #1a1a1f; }
 
 @keyframes revPulseGlow {
   from { filter: brightness(1); box-shadow: 0 0 8px var(--rev-green); }
-  to   { filter: brightness(1.4); box-shadow: 0 0 25px var(--rev-green); }
+  to   { filter: brightness(1.3); box-shadow: 0 0 22px var(--rev-green); }
 }
 
 /* Your-turn label — absolute, centered on the red top border, hanging downward */
