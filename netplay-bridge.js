@@ -73,6 +73,7 @@ class TycoonNetwork {
     // Callbacks
     this.onRoomReady        = null;
     this.onJoinSuccess      = null;
+    this.onHostLeft         = null;
     this.onPlayerJoined     = null;
     this.onPlayerLeft       = null;
     this.onGameMessage      = null;

@@ -17,6 +17,8 @@ class TycoonApp {
     this._readySet = new Set();     // IDs of ready players in lobby
     this._playAgainSet = new Set(); // IDs who voted play again
     this._localReady = false;
+    this._inLobby = false;          // true when connected to a lobby
+    this._passPending = false;      // true after pass clicked, until next turn
     this.pendingExchange = null;
     this._timerTick = null;
     this._lastKnownTimer = 90;
@@ -173,6 +175,17 @@ class TycoonApp {
     });
   }
 
+  _setLobbyButtons(inLobby) {
+    this._inLobby = inLobby;
+    // Only disable CREATE ROOM — joining a new lobby disconnects from old one automatically
+    const hostBtn = document.getElementById('btn-host');
+    if (hostBtn) {
+      hostBtn.disabled = inLobby;
+      hostBtn.style.opacity = inLobby ? '0.4' : '';
+      hostBtn.style.cursor = inLobby ? 'not-allowed' : '';
+    }
+  }
+
   showError(msg) {
     const errEl = document.getElementById('lobby-error');
     if (errEl) {
@@ -217,11 +230,27 @@ class TycoonApp {
 
     this.net.onGameMessage = (msg, fromId) => this.handleGameMessage(msg, fromId);
     this.net.onError = (msg) => this.showError(msg);
+
+    // Guest: host disconnected → lobby disbanded automatically
+    this.net.onHostLeft = () => {
+      if (this.game && this.game.phase !== 'lobby' && this.game.phase !== 'game_over') {
+        UI.showToast('Host disconnected — game ended.', 4000);
+      } else {
+        UI.showToast('Host left — lobby disbanded.', 4000);
+      }
+      this._roomCode = null;
+      this._setLobbyButtons(false);
+      setTimeout(() => location.reload(), 2000);
+    };
   }
 
   async hostGame() {
+    if (this._inLobby) return; // already in a lobby
     this.saveProfile();
     if (!this.playerInfo.nickname) { this.showError('Please enter a nickname.'); return; }
+
+    // Disconnect from any prior network
+    if (this.net) { try { this.net.disconnect(); } catch(_) {} }
 
     const hostBtn = document.getElementById('btn-host');
     hostBtn.disabled = true;
@@ -233,10 +262,11 @@ class TycoonApp {
 
     this.net.onRoomReady = (code) => {
       this.localId = this.net.getLocalId();
+      this._roomCode = code; // store own code to prevent self-join
       document.getElementById('display-room-code').textContent = code;
       document.getElementById('waiting-room').classList.remove('hidden');
       hostBtn.textContent = 'CREATE ROOM';
-      hostBtn.disabled = false;
+      this._setLobbyButtons(true);
       this.renderWaiting();
     };
 
@@ -253,6 +283,19 @@ class TycoonApp {
     const raw = document.getElementById('input-room-code').value.trim().toUpperCase().replace(/\s/g, '');
     if (!raw) return;
 
+    // Prevent anyone from joining the lobby they're already in
+    if (this._roomCode && raw === this._roomCode) {
+      this.showError('You are already in this lobby.');
+      return;
+    }
+
+    // Disconnect from any prior lobby before joining a new one
+    if (this.net) {
+      try { this.net.disconnect(); } catch(_) {}
+      this._roomCode = null;
+      this._setLobbyButtons(false);
+    }
+
     const joinBtn = document.getElementById('btn-join');
     joinBtn.disabled = true;
     joinBtn.textContent = 'JOINING...';
@@ -263,18 +306,19 @@ class TycoonApp {
 
     this.net.onJoinSuccess = () => {
       this.localId = this.net.getLocalId();
+      this._roomCode = raw; // store for all players to prevent rejoining same lobby
       document.getElementById('display-room-code').textContent = raw;
       document.getElementById('waiting-room').classList.remove('hidden');
-      joinBtn.textContent = 'JOIN ROOM';
-      joinBtn.disabled = false;
+      this._setLobbyButtons(true);
       this.renderWaiting();
     };
 
     try {
       await this.net.join(raw, this.playerInfo);
     } catch(e) {
-      this.showError('Join failed.');
+      this.showError('Could not join. Check the room code.');
       joinBtn.disabled = false;
+      joinBtn.textContent = 'JOIN ROOM';
     }
   }
 
@@ -570,6 +614,7 @@ class TycoonApp {
       this._stopClientTimer();
       UI.showScreen('gameover');
       UI.renderGameOver(g.players);
+      // Game is over — allow creating/joining a new lobby after play-again vote
     }
   }
 
@@ -677,26 +722,45 @@ class TycoonApp {
     const passBtn = document.getElementById('btn-pass');
     const selInfo = document.getElementById('selected-info');
 
-    // During pile-clear delay: lock ALL players, force grey appearance
+    // If it's now our turn (new trick started), clear the pass-pending state
+    if (isMyTurn && !g.pileClearPending && !g.currentPlay) {
+      this._passPending = false;
+    }
+
+    // During pile-clear delay: lock ALL players
     const pilePending = !!g.pileClearPending;
     const actionBtnsEl = document.getElementById('action-buttons');
     if (actionBtnsEl) actionBtnsEl.classList.toggle('pile-clearing', pilePending);
     if (playBtn) playBtn.disabled = pilePending || !isMyTurn || this.selectedCards.size === 0;
-    if (passBtn) {
-      passBtn.disabled = pilePending || !isMyTurn;
-      // Force greyed-out appearance during pile clear — override !important via inline style
-      if (pilePending) {
+
+    // Pass button: grey if pile pending OR it's not our turn OR we just passed
+    const passLocked = pilePending || !isMyTurn || this._passPending;
+    if (passBtn) passBtn.disabled = passLocked;
+    if (passLocked && this._passPending) {
+      // Keep grey via inline style (survives renderGameState calls)
+      this._applyPassButtonState();
+    } else if (!passLocked) {
+      // Restore normal appearance
+      this._passPending = false;
+      this._applyPassButtonState();
+    } else if (pilePending) {
+      // Grey for pile-clear reason (not pass-pending)
+      if (passBtn) {
         passBtn.style.setProperty('background', '#555', 'important');
         passBtn.style.setProperty('color', '#999', 'important');
         passBtn.style.opacity = '0.5';
         passBtn.style.cursor = 'not-allowed';
-      } else {
+      }
+    } else {
+      // Not our turn, not pending — restore appearance (disabled handles clickability)
+      if (passBtn) {
         passBtn.style.removeProperty('background');
         passBtn.style.removeProperty('color');
         passBtn.style.opacity = '';
         passBtn.style.cursor = '';
       }
     }
+
     // Clear selection during pile-clear delay
     if (pilePending && this.selectedCards.size > 0) {
       this.selectedCards.clear();
@@ -745,18 +809,28 @@ class TycoonApp {
   }
 
   submitPass() {
-    // Immediately grey out the pass button — don't wait for server round-trip
+    this._passPending = true; // stay grey until turn changes
+    this._applyPassButtonState();
+    const playBtn = document.getElementById('btn-play');
+    if (playBtn) playBtn.disabled = true;
+    this.net.sendToHost({ type: 'pass_turn' });
+  }
+
+  _applyPassButtonState() {
     const passBtn = document.getElementById('btn-pass');
-    if (passBtn) {
+    if (!passBtn) return;
+    if (this._passPending) {
       passBtn.disabled = true;
       passBtn.style.setProperty('background', '#555', 'important');
       passBtn.style.setProperty('color', '#999', 'important');
       passBtn.style.opacity = '0.5';
       passBtn.style.cursor = 'not-allowed';
+    } else {
+      passBtn.style.removeProperty('background');
+      passBtn.style.removeProperty('color');
+      passBtn.style.opacity = '';
+      passBtn.style.cursor = '';
     }
-    const playBtn = document.getElementById('btn-play');
-    if (playBtn) playBtn.disabled = true;
-    this.net.sendToHost({ type: 'pass_turn' });
   }
 
   nextRound() {
@@ -783,8 +857,10 @@ class TycoonApp {
 
   disbandLobby() {
     if (confirm('Disband the lobby? All players will be disconnected.')) {
-      this.net.broadcastGameMessage({ type: 'lobby_disbanded' });
+      try { this.net?.broadcastGameMessage({ type: 'lobby_disbanded' }); } catch(_) {}
       try { this.net?.disconnect(); } catch(e) {}
+      this._roomCode = null;
+      this._setLobbyButtons(false);
       location.reload();
     }
   }
@@ -792,6 +868,8 @@ class TycoonApp {
   leaveLobby() {
     if (confirm('Are you sure you want to leave the lobby?')) {
       try { this.net?.disconnect(); } catch(e) {}
+      this._roomCode = null;
+      this._setLobbyButtons(false);
       location.reload();
     }
   }
