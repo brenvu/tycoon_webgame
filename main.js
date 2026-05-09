@@ -581,6 +581,10 @@ class TycoonApp {
       while (g.players.length > state.players.length) g.players.pop();
     }
 
+    if (g.currentTurn !== prevTurn) {
+      this._passPending = false; // Reset pass state because a new turn/trick has started
+    }
+
     // Start client timer if turn changed, timer jumped, OR phase just became 'playing'
     const phaseJustStarted = g.phase === 'playing' && prevPhase !== 'playing';
     if (g.phase === 'playing' && (phaseJustStarted || g.currentTurn !== prevTurn || Math.abs(g.turnTimer - prevTimer) > 2)) {
@@ -741,8 +745,29 @@ class TycoonApp {
     if (playBtn) playBtn.disabled = pilePending || !isMyTurn || this.selectedCards.size === 0;
 
     // Pass button: grey if pile pending OR it's not our turn OR we just passed
+    // Pass button logic:
+    // We lock it if: pile is clearing, it's not our turn, or we already clicked pass.
     const passLocked = pilePending || !isMyTurn || this._passPending;
-    if (passBtn) passBtn.disabled = passLocked;
+    
+    if (passBtn) {
+      passBtn.disabled = passLocked;
+
+      // VISUAL OVERRIDE: 
+      // If the pile is clearing OR we are waiting for our pass to process, 
+      // force the "darkened" style immediately.
+      if (pilePending || this._passPending) {
+        passBtn.style.setProperty('background', '#555', 'important');
+        passBtn.style.setProperty('color', '#999', 'important');
+        passBtn.style.opacity = '0.5';
+        passBtn.style.cursor = 'not-allowed';
+      } else {
+        // Restore normal P5-White styling if it's our turn and nothing is pending
+        passBtn.style.removeProperty('background');
+        passBtn.style.removeProperty('color');
+        passBtn.style.opacity = '';
+        passBtn.style.cursor = '';
+      }
+    }
     if (passLocked && this._passPending) {
       // Keep grey via inline style (survives renderGameState calls)
       this._applyPassButtonState();
@@ -816,10 +841,14 @@ class TycoonApp {
   }
 
   submitPass() {
-    this._passPending = true; // stay grey until turn changes
-    this._applyPassButtonState();
+    if (this._passPending || this.game.pileClearPending) return;
+
+    this._passPending = true; 
+    this.renderGameState(); // Force immediate visual update to darken button
+    
     const playBtn = document.getElementById('btn-play');
     if (playBtn) playBtn.disabled = true;
+    
     this.net.sendToHost({ type: 'pass_turn' });
   }
 
