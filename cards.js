@@ -312,12 +312,12 @@ function cardDisplayName(card) {
 // Get rank display label
 function rankLabel(rank) {
   const labels = {
-    'tycoon':   '👑 TYCOON',
-    'rich':     '🎩 RICH',
-    'poor':     '⚔️ POOR',
-    'commoner': '🔵 COMMONER',
-    'beggar':   '🩶 BEGGAR',
-    'bankrupt': '💀 BANKRUPT'
+    'tycoon':   'TYCOON',
+    'rich':     'RICH',
+    'poor':     'POOR',
+    'commoner': 'COMMONER',
+    'beggar':   'BEGGAR',
+    'bankrupt': 'BANKRUPT'
   };
   return labels[rank] || rank.toUpperCase();
 }

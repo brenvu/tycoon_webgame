@@ -301,17 +301,17 @@ const UI = {
     let type = 'feed-play';
     let icon = '▶';
 
-    if (/passed/i.test(msg))                            { type = 'feed-pass';       icon = '⏭'; }
-    else if (/COUNTER.REVOLUTION/i.test(msg))           { type = 'feed-revolution'; icon = '🔄'; }
-    else if (/REVOLUTION/i.test(msg))                   { type = 'feed-revolution'; icon = '⚡'; }
-    else if (/8 STOP/i.test(msg))                       { type = 'feed-special';    icon = '🛑'; }
+    if (/passed/i.test(msg))                            { type = 'feed-pass';       icon = '»'; }
+    else if (/COUNTER.REVOLUTION/i.test(msg))           { type = 'feed-revolution'; icon = '↺'; }
+    else if (/REVOLUTION/i.test(msg))                   { type = 'feed-revolution'; icon = '↯'; }
+    else if (/8 STOP/i.test(msg))                       { type = 'feed-special';    icon = '8'; }
     else if (/SPADE REVERSAL/i.test(msg))                { type = 'feed-special';    icon = '♠'; }
-    else if (/wins the trick|won the trick/i.test(msg)) { type = 'feed-win-trick';  icon = '✦'; }
-    else if (/All others passed/i.test(msg))            { type = 'feed-win-trick';  icon = '✦'; }
-    else if (/finished|🏆/i.test(msg))                 { type = 'feed-finish';     icon = '🏆'; }
-    else if (/BANKRUPT/i.test(msg))                     { type = 'feed-finish';     icon = '💀'; }
-    else if (/Round.*started|GAME OVER|→/i.test(msg))  { type = 'feed-system';     icon = '📋'; }
-    else if (/exchange|gave|chose|Beggar/i.test(msg))   { type = 'feed-system';     icon = '🔃'; }
+    else if (/wins the trick|won the trick/i.test(msg)) { type = 'feed-win-trick';  icon = '★'; }
+    else if (/All others passed/i.test(msg))            { type = 'feed-win-trick';  icon = '★'; }
+    else if (/finished|\[DONE\]/i.test(msg))            { type = 'feed-finish';     icon = '!'; }
+    else if (/BANKRUPT/i.test(msg))                     { type = 'feed-finish';     icon = 'X'; }
+    else if (/Round.*started|GAME OVER|→/i.test(msg))  { type = 'feed-system';     icon = '·'; }
+    else if (/exchange|gave|chose|Beggar/i.test(msg))   { type = 'feed-system';     icon = '⇄'; }
     else if (/played:/i.test(msg))                      { type = 'feed-play';       icon = '▶'; }
 
     const entry = document.createElement('div');
@@ -346,7 +346,14 @@ const UI = {
       const av = this._makeAvatarEl(p.avatar, p.nickname, 'waiting-avatar-sm', p.avatarColor);
       const nameEl = document.createElement('span');
       nameEl.className = 'waiting-player-name';
-      nameEl.textContent = p.nickname + (p.id === localId ? ' (You)' : '') + (p.isHost ? ' 👑' : '');
+      const youTag = p.id === localId ? ' (You)' : '';
+      nameEl.textContent = p.nickname + youTag;
+      if (p.isHost) {
+        const hostTag = document.createElement('span');
+        hostTag.className = 'host-tag';
+        hostTag.textContent = 'HOST';
+        nameEl.appendChild(hostTag);
+      }
 
       row.appendChild(av);
       row.appendChild(nameEl);

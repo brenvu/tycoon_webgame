@@ -1846,6 +1846,17 @@ option[value="#f97316"] { color: #f97316; }
 .btn-ready:hover { background: #16a34a; }
 .btn-ready.is-ready { background: #64748b; color: #ccc; }
 
+/* HOST tag in waiting room player list */
+.host-tag {
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-style: italic;
+  color: rgba(255,255,255,0.4);
+  letter-spacing: 2px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
 /* Ready status — centered between room code and action buttons */
 .ready-status {
   font-family: var(--font-display);

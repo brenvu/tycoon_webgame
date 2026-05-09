@@ -677,12 +677,26 @@ class TycoonApp {
     const passBtn = document.getElementById('btn-pass');
     const selInfo = document.getElementById('selected-info');
 
-    // During pile-clear delay: lock ALL players
+    // During pile-clear delay: lock ALL players, force grey appearance
     const pilePending = !!g.pileClearPending;
     const actionBtnsEl = document.getElementById('action-buttons');
     if (actionBtnsEl) actionBtnsEl.classList.toggle('pile-clearing', pilePending);
     if (playBtn) playBtn.disabled = pilePending || !isMyTurn || this.selectedCards.size === 0;
-    if (passBtn) passBtn.disabled = pilePending || !isMyTurn;
+    if (passBtn) {
+      passBtn.disabled = pilePending || !isMyTurn;
+      // Force greyed-out appearance during pile clear — override !important via inline style
+      if (pilePending) {
+        passBtn.style.setProperty('background', '#555', 'important');
+        passBtn.style.setProperty('color', '#999', 'important');
+        passBtn.style.opacity = '0.5';
+        passBtn.style.cursor = 'not-allowed';
+      } else {
+        passBtn.style.removeProperty('background');
+        passBtn.style.removeProperty('color');
+        passBtn.style.opacity = '';
+        passBtn.style.cursor = '';
+      }
+    }
     // Clear selection during pile-clear delay
     if (pilePending && this.selectedCards.size > 0) {
       this.selectedCards.clear();

@@ -316,11 +316,11 @@ class TycoonGame {
       if (result.isCounterRevolution) {
         // Counter-revolution: cancels the active revolution, restores normal order
         this.revolutionActive = false;
-        this._log(`🔄 COUNTER-REVOLUTION by ${player.nickname}! Card values RESTORED to normal!`);
+        this._log(`[COUNTER-REV] COUNTER-REVOLUTION by ${player.nickname}! Card values RESTORED to normal!`);
       } else {
         // New revolution: flip values
         this.revolutionActive = !this.revolutionActive;
-        this._log(`⚡ REVOLUTION! Card values are ${this.revolutionActive ? 'REVERSED' : 'RESTORED'}!`);
+        this._log(`[REV] REVOLUTION! Card values are ${this.revolutionActive ? 'REVERSED' : 'RESTORED'}!`);
       }
       // Re-sort all hands with new ordering
       this.players.forEach(p => {
@@ -443,7 +443,7 @@ class TycoonGame {
       this.finishOrder.push(playerIdx);
       const pos = this.finishOrder.length;
       player.finishPosition = pos;
-      this._log(`🏆 ${player.nickname} finished ${pos}${ordinal(pos)}!`);
+      this._log(`[DONE] ${player.nickname} finished ${pos}${ordinal(pos)}!`);
 
       // Mid-round tycoon bankruptcy (round 2+ only):
       // The moment someone OTHER than the tycoon finishes 1st, the tycoon is
@@ -484,7 +484,7 @@ class TycoonGame {
     if (this.currentTurn === tycoonIdx) {
       this.advanceTurn();
     }
-    this._log(`💀 BANKRUPT! ${tycoon.nickname} failed to defend 1st place — immediately eliminated!`);
+    this._log(`[X] BANKRUPT! ${tycoon.nickname} failed to defend 1st place — immediately eliminated!`);
     this._notify();
   }
 
@@ -555,7 +555,7 @@ class TycoonGame {
     this.stopTurnTimer();
     // Sort by score
     const sorted = [...this.players].sort((a, b) => b.score - a.score);
-    this._log(`🎉 GAME OVER! Winner: ${sorted[0].nickname} with ${sorted[0].score} points!`);
+    this._log(`[END] GAME OVER! Winner: ${sorted[0].nickname} with ${sorted[0].score} points!`);
     this._notify();
   }
 
