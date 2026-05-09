@@ -745,6 +745,17 @@ class TycoonApp {
   }
 
   submitPass() {
+    // Immediately grey out the pass button — don't wait for server round-trip
+    const passBtn = document.getElementById('btn-pass');
+    if (passBtn) {
+      passBtn.disabled = true;
+      passBtn.style.setProperty('background', '#555', 'important');
+      passBtn.style.setProperty('color', '#999', 'important');
+      passBtn.style.opacity = '0.5';
+      passBtn.style.cursor = 'not-allowed';
+    }
+    const playBtn = document.getElementById('btn-play');
+    if (playBtn) playBtn.disabled = true;
     this.net.sendToHost({ type: 'pass_turn' });
   }
 
