@@ -18,7 +18,7 @@ class TycoonApp {
     this._playAgainSet = new Set(); // IDs who voted play again
     this._localReady = false;
     this._inLobby = false;          // true when connected to a lobby
-    this._passPending = false;      // true after pass clicked, until next turn
+    this._passGreyTimer = null;     // timer handle for greying pass after click
     this.pendingExchange = null;
     this._timerTick = null;
     this._lastKnownTimer = 90;
@@ -313,9 +313,12 @@ class TycoonApp {
 
     this.net.onJoinSuccess = () => {
       this.localId = this.net.getLocalId();
-      this._roomCode = raw; // store for all players to prevent rejoining same lobby
+      this._roomCode = raw;
       document.getElementById('display-room-code').textContent = raw;
       document.getElementById('waiting-room').classList.remove('hidden');
+      // Re-enable join button — players can join a different lobby at any time
+      joinBtn.disabled = false;
+      joinBtn.textContent = 'JOIN ROOM';
       this._setLobbyButtons(true);
       this.renderWaiting();
     };
@@ -581,10 +584,6 @@ class TycoonApp {
       while (g.players.length > state.players.length) g.players.pop();
     }
 
-    if (g.currentTurn !== prevTurn) {
-      this._passPending = false; // Reset pass state because a new turn/trick has started
-    }
-
     // Start client timer if turn changed, timer jumped, OR phase just became 'playing'
     const phaseJustStarted = g.phase === 'playing' && prevPhase !== 'playing';
     if (g.phase === 'playing' && (phaseJustStarted || g.currentTurn !== prevTurn || Math.abs(g.turnTimer - prevTimer) > 2)) {
@@ -733,59 +732,23 @@ class TycoonApp {
     const passBtn = document.getElementById('btn-pass');
     const selInfo = document.getElementById('selected-info');
 
-    // Clear pass-pending whenever it's genuinely our turn (pile not mid-clear)
-    if (isMyTurn && !g.pileClearPending) {
-      this._passPending = false;
-    }
-
     // During pile-clear delay: lock ALL players
     const pilePending = !!g.pileClearPending;
     const actionBtnsEl = document.getElementById('action-buttons');
     if (actionBtnsEl) actionBtnsEl.classList.toggle('pile-clearing', pilePending);
     if (playBtn) playBtn.disabled = pilePending || !isMyTurn || this.selectedCards.size === 0;
 
-    // Pass button: grey if pile pending OR it's not our turn OR we just passed
-    // Pass button logic:
-    // We lock it if: pile is clearing, it's not our turn, or we already clicked pass.
-    const passLocked = pilePending || !isMyTurn || this._passPending;
-    
-    if (passBtn) {
-      passBtn.disabled = passLocked;
-
-      // VISUAL OVERRIDE: 
-      // If the pile is clearing OR we are waiting for our pass to process, 
-      // force the "darkened" style immediately.
-      if (pilePending || this._passPending) {
+    // Pass button: if 2-second grey timer is running, leave inline styles alone.
+    // Otherwise set disabled state normally; renderGameState doesn't touch inline styles.
+    if (!this._passGreyTimer) {
+      if (passBtn) passBtn.disabled = pilePending || !isMyTurn;
+      // Apply grey inline style only during pile clear (not our turn is handled by disabled)
+      if (pilePending && passBtn) {
         passBtn.style.setProperty('background', '#555', 'important');
         passBtn.style.setProperty('color', '#999', 'important');
         passBtn.style.opacity = '0.5';
         passBtn.style.cursor = 'not-allowed';
-      } else {
-        // Restore normal P5-White styling if it's our turn and nothing is pending
-        passBtn.style.removeProperty('background');
-        passBtn.style.removeProperty('color');
-        passBtn.style.opacity = '';
-        passBtn.style.cursor = '';
-      }
-    }
-    if (passLocked && this._passPending) {
-      // Keep grey via inline style (survives renderGameState calls)
-      this._applyPassButtonState();
-    } else if (!passLocked) {
-      // Restore normal appearance
-      this._passPending = false;
-      this._applyPassButtonState();
-    } else if (pilePending) {
-      // Grey for pile-clear reason (not pass-pending)
-      if (passBtn) {
-        passBtn.style.setProperty('background', '#555', 'important');
-        passBtn.style.setProperty('color', '#999', 'important');
-        passBtn.style.opacity = '0.5';
-        passBtn.style.cursor = 'not-allowed';
-      }
-    } else {
-      // Not our turn, not pending — restore appearance (disabled handles clickability)
-      if (passBtn) {
+      } else if (!pilePending && passBtn) {
         passBtn.style.removeProperty('background');
         passBtn.style.removeProperty('color');
         passBtn.style.opacity = '';
@@ -841,32 +804,33 @@ class TycoonApp {
   }
 
   submitPass() {
-    if (this._passPending || this.game.pileClearPending) return;
-
-    this._passPending = true; 
-    this.renderGameState(); // Force immediate visual update to darken button
-    
-    const playBtn = document.getElementById('btn-play');
-    if (playBtn) playBtn.disabled = true;
-    
+    this._greyPassBtn();
     this.net.sendToHost({ type: 'pass_turn' });
   }
 
-  _applyPassButtonState() {
+  _greyPassBtn() {
     const passBtn = document.getElementById('btn-pass');
-    if (!passBtn) return;
-    if (this._passPending) {
+    const playBtn = document.getElementById('btn-play');
+    if (passBtn) {
       passBtn.disabled = true;
       passBtn.style.setProperty('background', '#555', 'important');
       passBtn.style.setProperty('color', '#999', 'important');
       passBtn.style.opacity = '0.5';
       passBtn.style.cursor = 'not-allowed';
-    } else {
-      passBtn.style.removeProperty('background');
-      passBtn.style.removeProperty('color');
-      passBtn.style.opacity = '';
-      passBtn.style.cursor = '';
     }
+    if (playBtn) playBtn.disabled = true;
+    // Keep grey for 2 seconds regardless of render calls, then let renderGameState take over
+    if (this._passGreyTimer) clearTimeout(this._passGreyTimer);
+    this._passGreyTimer = setTimeout(() => {
+      this._passGreyTimer = null;
+      if (passBtn) {
+        passBtn.style.removeProperty('background');
+        passBtn.style.removeProperty('color');
+        passBtn.style.opacity = '';
+        passBtn.style.cursor = '';
+      }
+      this.renderGameState();
+    }, 2000);
   }
 
   nextRound() {
