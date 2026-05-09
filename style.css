@@ -603,7 +603,7 @@ select option { background: #1a1a1f; }
   transform: translateX(-50%);
   
   /* Box Styling */
-  background: var(--rev-green);
+  background: rgba(132, 204, 22, 0.8);
   color: #000;
   font-family: var(--font-display);
   font-size: 14px;
