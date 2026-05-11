@@ -142,7 +142,12 @@ function sortHand(hand, revolutionActive = false) {
 
 // Check if a card is an "8 Stop"
 function is8Stop(card) {
-  return !card.joker && card.rank === '8';
+  return card.joker || card.rank === '8';
+}
+
+function is8StopSet(cards) {
+  // All cards must be 8s or jokers, and at least one must be an actual 8 or joker
+  return cards.length > 0 && cards.every(c => is8Stop(c));
 }
 
 // Check if cards contain a Joker
@@ -163,14 +168,12 @@ function validatePlay(selectedCards, currentPlay, revolutionActive) {
 
   const count = selectedCards.length;
 
-  // All-8 stop: count must match current play (or any count on empty pile)
-  const allEights = selectedCards.every(c => is8Stop(c));
+  // All-8 stop: 8s and/or jokers acting as 8s
+  const allEights = is8StopSet(selectedCards);
   if (allEights) {
-    // On empty pile: any number of 8s is valid
     if (!currentPlay) return { valid: true, isStop: true };
-    // On existing play: must match the current play count
     if (selectedCards.length === currentPlay.count) return { valid: true, isStop: true };
-    // Wrong count — fall through to normal validation (will fail count check below)
+    // Wrong count — fall through to normal validation
   }
 
   // If pile is empty
@@ -259,7 +262,7 @@ function getPlayableCards(hand, currentPlay, revolutionActive) {
   const required = currentPlay.topStrength;
   const requiredCount = currentPlay.count;
 
-  // Check 8 stops — only playable if player has enough 8s to match required count
+  // Check 8 stops — 8s and jokers together count toward the stop
   const eights = hand.filter(c => is8Stop(c));
   if (eights.length >= requiredCount) {
     eights.forEach(c => playable.add(c.id));

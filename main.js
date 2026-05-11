@@ -788,6 +788,17 @@ class TycoonApp {
     const hand = this.game.getLocalHand() || [];
     const cards = [...this.selectedCards].map(id => hand.find(c => c.id === id)).filter(Boolean);
     if (cards.length === 0) return;
+
+    // Validate locally first to show error immediately (host and guest)
+    const localResult = Cards.validatePlay(cards, this.game.currentPlay, this.game.revolutionActive);
+    if (!localResult.valid) {
+      UI.showToast('Invalid: ' + localResult.reason, 3000);
+      return;
+    }
+
+    // Grey both buttons and dim hand for 3s client-side
+    this._greyBothButtons();
+
     this.net.sendToHost({ type: 'play_cards', cards });
     this.selectedCards.clear();
     // Optimistically remove cards from local hand so they disappear immediately
@@ -804,33 +815,40 @@ class TycoonApp {
   }
 
   submitPass() {
-    this._greyPassBtn();
+    this._greyBothButtons();
     this.net.sendToHost({ type: 'pass_turn' });
   }
 
-  _greyPassBtn() {
+  _greyBothButtons() {
     const passBtn = document.getElementById('btn-pass');
     const playBtn = document.getElementById('btn-play');
-    if (passBtn) {
-      passBtn.disabled = true;
-      passBtn.style.setProperty('background', '#555', 'important');
-      passBtn.style.setProperty('color', '#999', 'important');
-      passBtn.style.opacity = '0.5';
-      passBtn.style.cursor = 'not-allowed';
-    }
-    if (playBtn) playBtn.disabled = true;
-    // Keep grey for 2 seconds regardless of render calls, then let renderGameState take over
+    const handEl  = document.getElementById('hand-cards');
+    // Grey both buttons immediately
+    [passBtn, playBtn].forEach(btn => {
+      if (!btn) return;
+      btn.disabled = true;
+      btn.style.setProperty('background', '#555', 'important');
+      btn.style.setProperty('color', '#999', 'important');
+      btn.style.opacity = '0.5';
+      btn.style.cursor = 'not-allowed';
+    });
+    // Dim hand so cards look unselectable
+    if (handEl) { handEl.style.opacity = '0.35'; handEl.style.pointerEvents = 'none'; }
+    // Hold state for 3 seconds then let renderGameState take over
     if (this._passGreyTimer) clearTimeout(this._passGreyTimer);
     this._passGreyTimer = setTimeout(() => {
       this._passGreyTimer = null;
-      if (passBtn) {
-        passBtn.style.removeProperty('background');
-        passBtn.style.removeProperty('color');
-        passBtn.style.opacity = '';
-        passBtn.style.cursor = '';
-      }
+      // Restore button appearances (renderGameState controls disabled state)
+      [passBtn, playBtn].forEach(btn => {
+        if (!btn) return;
+        btn.style.removeProperty('background');
+        btn.style.removeProperty('color');
+        btn.style.opacity = '';
+        btn.style.cursor = '';
+      });
+      if (handEl) { handEl.style.opacity = ''; handEl.style.pointerEvents = ''; }
       this.renderGameState();
-    }, 2000);
+    }, 3000);
   }
 
   nextRound() {

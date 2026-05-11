@@ -427,21 +427,35 @@ const UI = {
 
   renderGameOver(players) {
     const panel = document.getElementById('final-rankings');
+    const title = document.getElementById('gameover-title');
     if (!panel) return;
+    if (title) title.textContent = 'GAME END';
 
     const sorted = [...players].sort((a, b) => b.score - a.score);
     panel.innerHTML = '';
 
+    // Assign shared places: same score = same place
+    const places = [];
     sorted.forEach((p, i) => {
+      if (i === 0) { places.push(1); return; }
+      places.push(p.score === sorted[i - 1].score ? places[i - 1] : i + 1);
+    });
+
+    const placeLabel = n => n === 1 ? '1ST' : n === 2 ? '2ND' : n === 3 ? '3RD' : n + 'TH';
+
+    sorted.forEach((p, i) => {
+      const pl = places[i];
       const row = document.createElement('div');
-      row.className = `final-rank-row ${i === 0 ? 'winner-row' : ''}`;
-      const medals = ['🥇', '🥈', '🥉', '4️⃣'];
+      row.className = `final-rank-row ${pl === 1 ? 'winner-row' : ''}`;
+      const avatarHtml = p.avatar
+        ? `<img src="avatars/${p.avatar}" class="final-avatar-img" style="background:${p.avatarColor||'#111'}">`
+        : `<div class="final-avatar-ph" style="background:${p.avatarColor||'#e8001c'}">${(p.nickname||'?')[0].toUpperCase()}</div>`;
       row.innerHTML = `
-        <div class="final-medal">${medals[i] || ''}</div>
-        <div class="final-avatar">${p.avatar ? `<img src="avatars/${p.avatar}" class="final-avatar-img">` : '<div class="final-avatar-ph">?</div>'}</div>
+        <div class="final-medal">${placeLabel(pl)}</div>
+        <div class="final-avatar">${avatarHtml}</div>
         <div class="final-info">
           <div class="final-name">${p.nickname}</div>
-          <div class="final-rank" style="color:${Cards.rankColor(p.rank)}">${(p.rank || 'commoner').toUpperCase()}</div>
+          <div class="final-rank" style="color:${Cards.rankColor(p.rank)}">${(p.rank||'commoner').toUpperCase()}</div>
         </div>
         <div class="final-score">${p.score} pts</div>
       `;
