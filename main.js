@@ -209,17 +209,26 @@ class TycoonApp {
 
     this.net.onPlayerLeft = (peerId) => {
       // Always remove leaver from ready set immediately
-      if (this._readySet.has(peerId)) {
-        this._readySet.delete(peerId);
-        // If this player was the local player (shouldn't happen) just clear
-      }
+      this._readySet.delete(peerId);
 
       const pIdx = this.game ? this.game.players.findIndex(p => p.id === peerId) : -1;
       const playerName = pIdx !== -1 ? (this.game.players[pIdx].nickname || 'A player') : 'A player';
-      UI.showToast(playerName + ' disconnected.');
 
-      if (!this.game || this.game.phase === 'lobby' || !this.game.phase) {
-        // Re-render waiting room; host re-broadcasts updated ready state
+      if (this.game && this.game.phase === 'playing' && this.isHost) {
+        // Mid-game: mark player as disconnected, auto-pass their turns
+        this.game.playerDisconnected(peerId);
+        this._broadcastFullState();
+        // Check if game ended due to too many disconnections
+        if (this.game.phase === 'game_over') {
+          UI.showToast('Too many players disconnected — Game Ended.', 5000);
+          UI.showScreen('gameover');
+          UI.renderGameOver(this.game.players);
+        } else {
+          UI.showToast(playerName + ' disconnected — their turns will be skipped.', 4000);
+          this.renderGameState();
+        }
+      } else if (!this.game || this.game.phase === 'lobby' || !this.game.phase) {
+        UI.showToast(playerName + ' left the lobby.');
         this.renderWaiting();
       }
     };
@@ -231,16 +240,20 @@ class TycoonApp {
     this.net.onGameMessage = (msg, fromId) => this.handleGameMessage(msg, fromId);
     this.net.onError = (msg) => this.showError(msg);
 
-    // Guest: host disconnected → lobby disbanded automatically
+    // Guest: host disconnected
     this.net.onHostLeft = () => {
-      if (this.game && this.game.phase !== 'lobby' && this.game.phase !== 'game_over') {
-        UI.showToast('Host disconnected — game ended.', 4000);
+      if (this.game && this.game.phase === 'playing') {
+        // Mid-game host disconnect: show game over with error
+        UI.showToast('Host disconnected — Game Ended.', 5000);
+        this.game.phase = 'game_over';
+        UI.showScreen('gameover');
+        UI.renderGameOver(this.game.players);
       } else {
         UI.showToast('Host left — lobby disbanded.', 4000);
+        this._roomCode = null;
+        this._setLobbyButtons(false);
+        setTimeout(() => location.reload(), 2000);
       }
-      this._roomCode = null;
-      this._setLobbyButtons(false);
-      setTimeout(() => location.reload(), 2000);
     };
   }
 
