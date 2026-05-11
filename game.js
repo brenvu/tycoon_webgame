@@ -314,11 +314,9 @@ class TycoonGame {
     // Check Revolution / Counter-Revolution
     if (result.isRevolution) {
       if (result.isCounterRevolution) {
-        // Counter-revolution: cancels the active revolution, restores normal order
         this.revolutionActive = false;
         this._log(`[COUNTER-REV] COUNTER-REVOLUTION by ${player.nickname}! Card values RESTORED to normal!`);
       } else {
-        // New revolution: flip values
         this.revolutionActive = !this.revolutionActive;
         this._log(`[REV] REVOLUTION! Card values are ${this.revolutionActive ? 'REVERSED' : 'RESTORED'}!`);
       }
@@ -326,6 +324,8 @@ class TycoonGame {
       this.players.forEach(p => {
         p.hand = Cards.sortHand(p.hand, this.revolutionActive);
       });
+      // Recompute topStrength with the NEW revolution state so next player is compared correctly
+      this.currentPlay.topStrength = Cards.getPlayStrength(selectedCards, this.revolutionActive);
     }
 
     // Check if 3♠ played (ends trick)

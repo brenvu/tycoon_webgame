@@ -142,12 +142,15 @@ function sortHand(hand, revolutionActive = false) {
 
 // Check if a card is an "8 Stop"
 function is8Stop(card) {
-  return card.joker || card.rank === '8';
+  return !card.joker && card.rank === '8';
 }
 
 function is8StopSet(cards) {
-  // All cards must be 8s or jokers, and at least one must be an actual 8 or joker
-  return cards.length > 0 && cards.every(c => is8Stop(c));
+  // All cards must be 8s or jokers, with at least one real 8
+  if (cards.length === 0) return false;
+  const hasReal8 = cards.some(c => !c.joker && c.rank === '8');
+  const allValid = cards.every(c => c.joker || c.rank === '8');
+  return hasReal8 && allValid;
 }
 
 // Check if cards contain a Joker
@@ -207,16 +210,21 @@ function validatePlay(selectedCards, currentPlay, revolutionActive) {
   }
 
   const playStrength = getPlayStrength(selectedCards, revolutionActive);
-  const required = currentPlay.topStrength;
 
-  if (playStrength <= required) {
+  // For the required strength: always recompute using the CURRENT revolution state.
+  // This matters for counter-revolution: the prior play stored topStrength under the
+  // old revolution state (e.g. 4 Jacks played when revolution=false stored strength 8),
+  // but now revolution=true so we must compare apples-to-apples.
+  const requiredStrength = currentPlay.cards && currentPlay.cards.length > 0
+    ? getPlayStrength(currentPlay.cards, revolutionActive)
+    : currentPlay.topStrength;
+
+  if (playStrength <= requiredStrength) {
     return { valid: false, reason: 'Your cards must be stronger than the current pile.' };
   }
 
   // Check if this is a revolution or counter-revolution
   const isRev = isRevolution(selectedCards);
-  // Counter-revolution: a 4-of-a-kind played WHILE a revolution is already active
-  // It beats the current play AND toggles the revolution back off
   const isCounterRev = isRev && revolutionActive;
 
   return {
@@ -259,13 +267,20 @@ function getPlayableCards(hand, currentPlay, revolutionActive) {
     return playable;
   }
 
-  const required = currentPlay.topStrength;
+  // Recompute required strength under CURRENT revolution state so counter-revolution works
+  const required = currentPlay.cards && currentPlay.cards.length > 0
+    ? getPlayStrength(currentPlay.cards, revolutionActive)
+    : currentPlay.topStrength;
   const requiredCount = currentPlay.count;
 
-  // Check 8 stops — 8s and jokers together count toward the stop
-  const eights = hand.filter(c => is8Stop(c));
-  if (eights.length >= requiredCount) {
-    eights.forEach(c => playable.add(c.id));
+  // Check 8 stops — real 8s + jokers filling in count together
+  const realEights = hand.filter(c => is8Stop(c));
+  const jokerCards = hand.filter(c => c.joker);
+  const totalEightLike = realEights.length + jokerCards.length;
+  if (realEights.length > 0 && totalEightLike >= requiredCount) {
+    // Mark real 8s and jokers as playable for the stop
+    realEights.forEach(c => playable.add(c.id));
+    jokerCards.forEach(c => playable.add(c.id));
   }
 
   // Check if 3♠ can be played (ONLY against a single Joker)

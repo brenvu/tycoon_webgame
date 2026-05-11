@@ -108,7 +108,7 @@ class TycoonApp {
     document.getElementById('btn-copy-code').addEventListener('click', () => this.copyRoomCode());
     // btn-start-game is hidden — game starts via ready vote (_checkReadyStart)
     document.getElementById('btn-next-round').addEventListener('click', () => this.nextRound());
-    document.getElementById('btn-play-again').addEventListener('click', () => this.playAgain());
+    document.getElementById('btn-leave-game')?.addEventListener('click', () => { try { this.net?.disconnect(); } catch(_){} location.reload(); });
     document.getElementById('btn-play').addEventListener('click', () => this.submitPlay());
     document.getElementById('btn-pass').addEventListener('click', () => this.submitPass());
     document.getElementById('btn-confirm-exchange').addEventListener('click', () => this.submitExchangeFromGame());
