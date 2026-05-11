@@ -74,6 +74,7 @@ class TycoonNetwork {
     this.onRoomReady        = null;
     this.onJoinSuccess      = null;
     this.onHostLeft         = null;
+    this._intentionalDisconnect = false;
     this.onPlayerJoined     = null;
     this.onPlayerLeft       = null;
     this.onGameMessage      = null;
@@ -292,8 +293,9 @@ class TycoonNetwork {
         if (this.onPlayerLeft)       this.onPlayerLeft(conn.peer);
         if (this.onConnectionChange) this.onConnectionChange();
       } else {
-        // Guest: host connection closed → lobby disbanded
-        if (this.onHostLeft) this.onHostLeft();
+        // Guest: host connection closed
+        // Only fire onHostLeft if this wasn't triggered by our own disconnect() call
+        if (!this._intentionalDisconnect && this.onHostLeft) this.onHostLeft();
       }
     });
   }
@@ -307,6 +309,13 @@ class TycoonNetwork {
     if (this.isHost) {
       if (data.type === 'join') {
         this._onGuestJoined(conn, data.player);
+      } else if (data.type === 'leaving') {
+        // Guest explicitly notified us they're leaving
+        const pid = data.playerId;
+        this.allPlayers = this.allPlayers.filter(p => p.id !== pid);
+        this._broadcast({ type: 'player_left', playerId: pid });
+        if (this.onPlayerLeft)       this.onPlayerLeft(pid);
+        if (this.onConnectionChange) this.onConnectionChange();
       } else {
         if (this.onGameMessage) this.onGameMessage(data, conn.peer);
       }
@@ -407,12 +416,27 @@ class TycoonNetwork {
   }
 
   disconnect() {
-    this.connections.forEach(c => { try { c.close(); } catch (_) {} });
-    if (this.peer) { try { this.peer.destroy(); } catch (_) {} }
-    this.peer         = null;
-    this.connections = [];
-    this.allPlayers  = [];
-    this.roomCode    = null;
+    this._intentionalDisconnect = true;
+    // If guest, explicitly tell host we're leaving before closing
+    if (!this.isHost && this.localId) {
+      try {
+        const hostConn = this.connections[0];
+        if (hostConn && hostConn.open) {
+          this._send(hostConn, { type: 'leaving', playerId: this.localId });
+        }
+      } catch (_) {}
+    }
+    // Small delay lets the leaving message flush before we destroy the connection
+    const doClose = () => {
+      this.connections.forEach(c => { try { c.close(); } catch (_) {} });
+      if (this.peer) { try { this.peer.destroy(); } catch (_) {} }
+      this.peer         = null;
+      this.connections = [];
+      this.allPlayers  = [];
+      this.roomCode    = null;
+      setTimeout(() => { this._intentionalDisconnect = false; }, 0);
+    };
+    setTimeout(doClose, 80);
   }
 
   _friendlyError(err) {
