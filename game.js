@@ -418,9 +418,7 @@ class TycoonGame {
     this.currentTurn = nextPlayerIdx;
 
     let attempts = 0;
-    while (attempts < this.players.length) {
-      const p = this.players[this.currentTurn];
-      if (!p?.finished && p?.connected !== false) break;
+    while (this.players[this.currentTurn]?.finished && attempts < this.players.length) {
       this.currentTurn = (this.currentTurn + 1) % this.players.length;
       attempts++;
     }
