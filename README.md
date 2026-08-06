@@ -44,27 +44,9 @@ Before each new round starts, cards trade hands based on last round's ranks.
 
 ## Built with
 
+- **Claude
 - **Vanilla JavaScript, HTML, and CSS.** No framework or build step, the whole game runs as static files you can open directly in a browser.
 - **PeerJS**, loaded from a CDN, handles the WebRTC peer-to-peer connection between players (host-authoritative, star topology) so no game server is required.
 - **Google Fonts** (Bebas Neue, Oswald, Rajdhani) for the UI type.
-- A sprite sheet for the card faces and a swappable avatar system for player profile pictures.
+- A sprite sheet from Sprite Resource for the card faces.
 
-## Setup and customization
-
-### Adding avatars
-Drop `.png` or `.jpg` files into the `/avatars/` folder, then list them in `avatars/manifest.json`, for example
-```json
-["Ren_Amamiya.png", "Ryuji.png", "Ann.png"]
-```
-Each file's name (minus the extension) becomes its label in the avatar dropdown.
-
-### Deploying to GitHub Pages
-1. Push the whole folder to a GitHub repo.
-2. Go to Settings, then Pages, and set the source to the `main` branch, root folder.
-3. Share the resulting `https://username.github.io/repo-name` URL.
-
-### Deploying to itch.io
-1. Zip the entire folder's contents.
-2. Create a new project on itch.io, set Kind to "HTML".
-3. Upload the zip and check "This file will be played in the browser".
-4. Set the viewport size to 1280x720 or larger.
