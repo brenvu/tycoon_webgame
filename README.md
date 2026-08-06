@@ -1,5 +1,7 @@
 # Tycoon (Persona 5 Royal Card Game)
 
+https://brenvu.github.io/tycoon_webgame/
+
 A browser-based, multiplayer version of the Tycoon card game from Persona 5 Royal. Two to four players connect directly to each other over a peer-to-peer link using a 6-character room code, no server or account needed.
 
 This project was built with Claude, describing the game's rules, UI, and networking requirements and iterating turn by turn on gameplay logic, layout, and multiplayer syncing until it matched the in-game version from Persona 5 Royal.
