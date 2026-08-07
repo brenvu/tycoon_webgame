@@ -46,7 +46,7 @@ Before each new round starts, cards trade hands based on last round's ranks.
 
 ## Built with
 
-- **Claude
+- **Claude**
 - **Vanilla JavaScript, HTML, and CSS.** No framework or build step, the whole game runs as static files you can open directly in a browser.
 - **PeerJS**, loaded from a CDN, handles the WebRTC peer-to-peer connection between players (host-authoritative, star topology) so no game server is required.
 - **Google Fonts** (Bebas Neue, Oswald, Rajdhani) for the UI type.
